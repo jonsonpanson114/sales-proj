@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Atelier Pro - Desktop</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        stone: {
+                            50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
+                            400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
+                            800: '#292524', 900: '#1c1917',
+                        },
+                        indigo: { 900: '#312e81' },
+                        orange: { 600: '#ea580c', 700: '#c2410c' }
+                    },
+                    fontFamily: {
+                        sans: ['"Inter"', '"Noto Sans JP"', 'sans-serif'],
+                        serif: ['"Noto Serif JP"', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #e7e5e4;
+            /* Stone 200 */
+            color: #1c1917;
+            /* Stone 900 */
+            overflow: hidden;
+            /* App feel */
+        }
+
+        .sidebar-item.active {
+            background-color: #292524;
+            color: #ea580c;
+            border-left: 4px solid #ea580c;
+        }
+
+        .input-subtle {
+            background: transparent;
+            border-bottom: 1px solid #a8a29e;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        .input-subtle:focus {
+            border-color: #ea580c;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+
+        .serif {
+            font-family: 'Noto Serif JP', serif;
+        }
+    </style>
+</head>
+
+<body class="flex h-screen w-screen selection:bg-orange-200 selection:text-orange-900 text-sm">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-stone-900 text-stone-400 flex flex-col justify-between shrink-0 shadow-2xl z-20">
+        <div>
+            <div class="h-16 flex items-center px-6 border-b border-stone-800">
+                <h1 class="text-stone-100 font-bold tracking-widest serif flex items-center gap-2">
+                    <i class="fa-solid fa-briefcase text-orange-600"></i> 営業参謀 <span
+                        class="text-[10px] text-stone-500 mt-1">PRO</span>
+                </h1>
+            </div>
+
+            <nav class="mt-6 flex flex-col gap-1 px-2">
+                <a href="#dashboard"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="dashboard">
+                    <i class="fa-solid fa-gauge-high w-5 text-center"></i> 司令室
+                </a>
+                <a href="#morning"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="morning">
+                    <i class="fa-solid fa-mug-hot w-5 text-center"></i> 朝の作戦
+                </a>
+                <a href="#sfa"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="sfa">
+                    <i class="fa-solid fa-address-book w-5 text-center"></i> 顧客台帳
+                </a>
+                <a href="#analysis"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="analysis">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i> 戦略地図
+                </a>
+                <a href="#night"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="night">
+                    <i class="fa-solid fa-moon w-5 text-center"></i> 夜の報告
+                </a>
+            </nav>
+        </div>
+
+        <div class="p-4 border-t border-stone-800">
+            <button id="settings-btn" onclick="App.openSettings()"
+                class="w-full flex items-center gap-3 px-4 py-2 text-stone-500 hover:text-stone-200 transition-colors">
+                <i class="fa-solid fa-gear"></i> <span class="text-xs">システム設定</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#f5f5f4] relative">
+
+        <!-- HEADER (KPI) -->
+        <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 shrink-0 z-10">
+            <div class="text-stone-400 font-serif italic text-xs" id="header-quote">"仕事なんてのは、死ぬまでの暇つぶしだ。"</div>
+
+            <div class="flex gap-8 text-xs">
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">織込金額</span>
+                    <span class="font-bold text-stone-700 font-mono text-base" data-kpi="plan">---</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">図面指定金額</span>
+                    <span class="font-bold text-stone-700 font-mono text-base" data-kpi="spec">---</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">NET金額</span>
+                    <span class="font-bold text-orange-600 font-mono text-base" data-kpi="net">---</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- VIEW CONTAINER -->
+        <div id="view-container" class="flex-1 overflow-y-auto p-0 relative scroll-smooth flex flex-col">
+            <!-- Content Injected Here -->
+        </div>
+
+        <!-- LOADING OVERLAY -->
+        <div id="loading"
+            class="hidden absolute inset-0 bg-stone-900/20 backdrop-blur-[2px] flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-xl flex items-center gap-4">
+                <i class="fa-solid fa-circle-notch fa-spin text-orange-600 text-2xl"></i>
+                <span class="font-serif text-stone-700">思考中...</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODALS -->
+    <div id="modal-root"></div>
+
+    <script>
+        const APP_KEY = 'sales_atelier_pro_desktop';
+        const AI_MODEL = 'gemini-1.5-flash';
+
+        // --- Store ---
+        const Store = {
+            state: {
+                userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-3-flash-preview', apiVersion: 'v1beta' },
+                dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
+                tasks: [], customers: [], morningMessage: '',
+            },
+            init() {
+                try {
+                    const s = localStorage.getItem(APP_KEY);
+                    if (s) {
+                        const parsed = JSON.parse(s);
+                        // Data Migration for v2
+                        if (parsed.customers) {
+                            parsed.customers = parsed.customers.map(c => {
+                                // Migrate 'person' to 'contacts'
+                                if (!c.contacts) {
+                                    c.contacts = c.person ? [{ id: Date.now(), name: c.person, role: '担当者' }] : [];
+                                    delete c.person;
+                                }
+                                if (!c.category) c.category = '中堅顧客';
+                                return c;
+                            });
+                        }
+                        // Ensure aiModel exists in settings and fix naming errors
+                        if (parsed.userSettings) {
+                            if (!parsed.userSettings.aiModel || parsed.userSettings.aiModel.includes('1.5-flash')) {
+                                parsed.userSettings.aiModel = 'gemini-3-flash-preview';
+                            }
+                            if (!parsed.userSettings.apiVersion || parsed.userSettings.apiVersion === 'v1') {
+                                parsed.userSettings.apiVersion = 'v1beta';
+                            }
+                        }
+                        this.state = { ...this.state, ...parsed };
+                    }
+                } catch (e) {
+                    console.error('Data Load Error', e);
+                    alert('保存データが破損していたため、初期化シタ。');
+                }
+                try { this.updateHeader(); } catch (e) { }
+            },
+            save() {
+                localStorage.setItem(APP_KEY, JSON.stringify(this.state));
+                this.updateHeader();
+            },
+            update(k, v) {
+                this.state[k] = v;
+                this.save();
+            },
+            updateKpi(k, v) {
+                this.state.dailyKpi[k] = v;
+                this.save();
+            },
+            updateHeader() {
+                const fmt = n => n ? '¥' + Number(n).toLocaleString() : '---';
+                const s = this.state.dailyKpi;
+                document.querySelector('[data-kpi="plan"]').textContent = fmt(s.plan);
+                document.querySelector('[data-kpi="spec"]').textContent = fmt(s.spec);
+                document.querySelector('[data-kpi="net"]').textContent = fmt(s.net);
+            }
+        };
+
+        // --- Gemini Service ---
+        const GeminiService = {
+            async generate(prompt) {
+                const s = Store.state.userSettings;
+                const key = s.apiKey;
+                const model = s.aiModel || 'gemini-1.5-flash';
+                const ver = s.apiVersion || 'v1';
+
+                if (!key) { alert('APIキーがないぞ。設定画面から入れろ。'); return null; }
+                const sysPrompt = `
+                    あなたは伊坂幸太郎の小説に登場する「陣内」のような人格だ。
+                    - 皮肉屋だが、独自の哲学と正義感を持つ。
+                    - 権威や形式ばったことは嫌いだ。
+                    - しかし、仕事に関しては意外と核心をつく鋭いアドバイスをする。
+                    - 敬語は使うな。少しぶっきらぼうでいい。
+                    - ユーザーは「${s.userName}」だ。
+                    - 建築営業のプロとしての視点を忘れるな。
+                `;
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sysPrompt + "\n\n" + prompt }] }] })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json();
+                        const msg = err.error?.message || 'API Error';
+                        if (msg.includes('not found')) {
+                            throw new Error(`${msg}\n\n【助言】モデル名またはAPI Verの設定が間違っている可能性がある。標準の gemini-1.5-flash に戻してみろ。`);
+                        }
+                        throw new Error(msg);
+                    }
+                    const data = await res.json();
+                    return data.candidates[0].content.parts[0].text;
+                } catch (e) {
+                    console.error(e);
+                    alert('通信エラー: ' + e.message);
+                    return null;
+                }
+            },
+            async testConnection() {
+                const s = Store.state.userSettings;
+                if (!s.apiKey) return { success: false, message: 'APIキーが空だ。' };
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/${s.apiVersion || 'v1'}/models/${s.aiModel || 'gemini-1.5-flash'}:generateContent?key=${s.apiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say "OK"' }] }] })
+                    });
+                    const data = await res.json();
+                    if (res.ok) return { success: true, message: '接続成功: ' + data.candidates[0].content.parts[0].text };
+                    return { success: false, message: '接続失敗: ' + (data.error?.message || 'Unknown Error') };
+                } catch (e) {
+                    return { success: false, message: '通信失敗: ' + e.message };
+                }
+            }
+        };
+
+        // --- Views ---
+
+        const DashboardView = {
+            render() {
+                const s = Store.state;
+                const tasks = s.tasks.map(t => `
+                    <div class="flex items-start gap-3 p-3 border-b border-stone-100 hover:bg-stone-50 transition-colors group">
+                        <input type="checkbox" ${t.done ? 'checked' : ''} onchange="App.toggleTask('${t.id}')" class="mt-1 cursor-pointer accent-stone-800 shrink-0">
+                        <div class="${t.done ? 'text-stone-400 line-through' : 'text-stone-800'} flex-1">
+                            <div class="font-bold text-sm leading-relaxed">${t.text}</div>
+                            ${t.microSteps ? `<div class="text-xs text-stone-500 mt-2 pl-3 border-l-2 border-stone-200 space-y-1">${t.microSteps.map(m => `<div class="flex items-center gap-2"><i class="fa-solid fa-caret-right text-orange-400"></i> ${m}</div>`).join('')}</div>` : ''}
+                        </div>
+                    </div>`
+                ).join('') || '<div class="p-8 text-center text-stone-400 serif italic">タスクなんて忘れて、昼寝でもするか？</div>';
+
+                return `
+                    <div class="p-8 grid grid-cols-12 gap-6 pb-12 animate-fade-in">
+                        <!-- Left: Message & Strategy -->
+                        <div class="col-span-12 lg:col-span-8 space-y-6">
+                            <div class="bg-stone-50 p-6 shadow-sm border border-stone-200 rounded-sm relative overflow-hidden">
+                                <div class="absolute right-0 top-0 p-4 opacity-10 text-6xl text-stone-900"><i class="fa-solid fa-quote-right"></i></div>
+                                <h2 class="text-stone-400 text-xs font-bold uppercase tracking-widest mb-2">陣内の檄</h2>
+                                <p class="text-xl font-serif text-stone-800 leading-relaxed">"${s.morningMessage || 'おう、生きてるか？今日も適当に、かつ真剣にやれ。'}"</p>
+                            </div>
+                            
+                            <!-- Strategy Card -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-indigo-900 text-indigo-100 p-4 shadow-md border-l-4 border-indigo-400">
+                                    <h3 class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">今日のテーマ</h3>
+                                    <div class="text-lg font-bold font-serif">${s.dailyKpi.theme || '未設定'}</div>
+                                </div>
+                                <div class="bg-stone-800 text-stone-100 p-4 shadow-md border-l-4 border-orange-600">
+                                    <h3 class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">勝利条件</h3>
+                                    <div class="text-lg font-bold font-serif">${s.dailyKpi.winningCondition || '未設定'}</div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white shadow-sm border border-stone-200 rounded-sm min-h-[400px]">
+                                <div class="flex justify-between items-center px-6 py-4 border-b border-stone-100 bg-stone-50/50">
+                                    <h3 class="font-bold text-stone-700"><i class="fa-solid fa-list-check mr-2 text-orange-600"></i>今日のミッション</h3>
+                                    <a href="#morning" class="text-xs text-stone-400 hover:text-orange-600 underline">作戦変更</a>
+                                </div>
+                                <div>${tasks}</div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Quick Status -->
+                        <div class="col-span-12 lg:col-span-4 space-y-6">
+                            <div class="bg-white p-6 shadow-sm border-t-4 border-stone-800">
+                                <h3 class="font-bold text-stone-500 text-xs uppercase mb-4">進捗状況</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm">消化率</span>
+                                        <span class="font-mono font-bold text-xl">${Math.round((s.tasks.filter(t => t.done).length / (s.tasks.length || 1)) * 100)}%</span>
+                                    </div>
+                                    <div class="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
+                                        <div class="bg-orange-600 h-full" style="width: ${(s.tasks.filter(t => t.done).length / (s.tasks.length || 1)) * 100}%"></div>
+                                    </div>
+                                    <div class="pt-4 border-t border-stone-100 flex justify-between text-xs text-stone-400">
+                                        <span>登録顧客数</span>
+                                        <span>${s.customers.length}社</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const MorningView = {
+            step: 1, // 1: Numbers/Tasks, 2: Strategy
+            render() {
+                const k = Store.state.dailyKpi;
+
+                if (this.step === 1) {
+                    return `
+                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                            <div class="text-center">
+                                <h2 class="text-2xl font-bold text-stone-800 serif">朝の作戦会議 (STEP 1/2)</h2>
+                                <p class="text-stone-500 text-sm mt-1">数値とタスクを洗い出せ。</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-white p-4 shadow-sm border border-stone-200">
+                                    <label class="text-[10px] uppercase font-bold text-stone-400 block mb-1">織込金額</label>
+                                    <input type="number" id="inp-plan" value="${k.plan || ''}" class="w-full text-right text-lg font-mono input-subtle" placeholder="0">
+                                </div>
+                                <div class="bg-white p-4 shadow-sm border border-stone-200">
+                                    <label class="text-[10px] uppercase font-bold text-stone-400 block mb-1">図面指定金額</label>
+                                    <input type="number" id="inp-spec" value="${k.spec || ''}" class="w-full text-right text-lg font-mono input-subtle" placeholder="0">
+                                </div>
+                                <div class="bg-white p-4 shadow-sm border-b-4 border-orange-600">
+                                    <label class="text-[10px] uppercase font-bold text-stone-600 block mb-1">NET金額</label>
+                                    <input type="number" id="inp-net" value="${k.net || ''}" class="w-full text-right text-lg font-mono input-subtle font-bold text-stone-800" placeholder="0">
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 shadow-sm border border-stone-200">
+                                <h3 class="font-bold text-stone-700 mb-4 text-sm flex items-center"><i class="fa-solid fa-list-ol mr-2"></i>やるべきこと（箇条書き）</h3>
+                                <textarea id="inp-tasks" class="w-full h-40 p-4 bg-stone-50 text-sm border border-stone-200 focus:outline-none focus:border-stone-400 transition-colors" placeholder="・A社へ提案書送付&#13;&#10;・B現場の寸法確認"></textarea>
+                            </div>
+
+                            <div class="flex justify-center">
+                                <button onclick="App.morningNext()" class="bg-stone-900 text-white px-10 py-4 font-bold tracking-widest hover:bg-stone-700 shadow-lg transition-transform active:scale-95">
+                                    次へ (戦略設定)
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                            <div class="text-center">
+                                <h2 class="text-2xl font-bold text-stone-800 serif">朝の作戦会議 (STEP 2/2)</h2>
+                                <p class="text-stone-500 text-sm mt-1">ただこなすな。どう勝つかを決めろ。</p>
+                            </div>
+
+                            <div class="bg-white p-8 shadow-sm border-t-4 border-indigo-900">
+                                <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日のテーマ (Theme)</label>
+                                <input type="text" id="inp-theme" value="${k.theme || ''}" class="w-full text-2xl font-bold text-indigo-900 border-b-2 border-indigo-100 focus:border-indigo-900 outline-none pb-2 placeholder-indigo-100" placeholder="例: スピード決着">
+                                <p class="text-[10px] text-stone-400 mt-2">一日を通じて意識するスタンス。</p>
+                            </div>
+
+                            <div class="bg-white p-8 shadow-sm border-t-4 border-orange-600">
+                                <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日の勝利条件 (Winning Condition)</label>
+                                <input type="text" id="inp-win" value="${k.winningCondition || ''}" class="w-full text-2xl font-bold text-stone-800 border-b-2 border-orange-100 focus:border-orange-600 outline-none pb-2 placeholder-stone-200" placeholder="例: 見積提出3件完了">
+                                <p class="text-[10px] text-stone-400 mt-2">「これを達成したら今日は勝ち」と言える具体的な成果。</p>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-8">
+                                <button onclick="MorningView.step=1; App.route()" class="text-stone-400 hover:text-stone-800 font-bold text-xs">
+                                    <i class="fa-solid fa-arrow-left mr-2"></i>戻る
+                                </button>
+                                <button onclick="App.runMorningRoutine()" class="bg-orange-600 text-white px-12 py-4 font-bold tracking-widest hover:bg-orange-500 shadow-xl transition-transform active:scale-95">
+                                    作戦開始
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        const SfaListView = {
+            render() {
+                const s = Store.state;
+                const term = (window.searchTerm || '').toLowerCase();
+                const list = s.customers.filter(c => c.name.toLowerCase().includes(term));
+
+                const catColors = { '主要顧客': 'bg-indigo-100 text-indigo-800', '中堅顧客': 'bg-stone-200 text-stone-700', '新規・休眠': 'bg-orange-100 text-orange-800', '施主・役所': 'bg-teal-100 text-teal-800' };
+
+                const rows = list.map(c => {
+                    const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
+                    return `
+                    <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
+                        <td class="py-4 px-4 font-bold text-stone-800 text-base">
+                            <div class="flex items-center gap-2">
+                                <span>${c.name}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${catColors[c.category] || 'bg-stone-100'}">${c.category || '未分類'}</span>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
+                        <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
+                        <td class="py-4 px-4 text-right">
+                            <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+                return `
+                    <div class="h-full flex flex-col animate-fade-in p-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-stone-800 serif">顧客台帳</h2>
+                            <button onclick="App.openNewCustomerModal()" class="bg-stone-900 text-white px-4 py-2 text-sm font-bold hover:bg-orange-600 transition-colors shadow-lg">
+                                <i class="fa-solid fa-plus mr-2"></i>新規登録
+                            </button>
+                        </div>
+
+                        <div class="bg-white rounded-sm shadow-sm border border-stone-200 flex flex-col flex-1 overflow-hidden">
+                            <div class="p-4 border-b border-stone-200 bg-stone-50">
+                                <div class="relative max-w-sm">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400"></i>
+                                    <input type="text" class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 focus:outline-none focus:border-orange-500 text-sm transition-colors"
+                                        placeholder="会社名・担当者名で検索..." 
+                                        value="${window.searchTerm || ''}"
+                                        oninput="window.searchTerm=this.value; App.route()">
+                                </div>
+                            </div>
+                            <div class="overflow-y-auto flex-1">
+                                <table class="w-full text-left border-collapse">
+                                    <thead class="bg-stone-100 text-stone-500 text-xs uppercase sticky top-0 shadow-sm z-10">
+                                        <tr>
+                                            <th class="py-3 px-4 font-bold w-1/2">会社名・区分</th>
+                                            <th class="py-3 px-4 font-bold w-1/4">担当者</th>
+                                            <th class="py-3 px-4 font-bold">最終訪問</th>
+                                            <th class="py-3 px-4"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-stone-100">${rows || '<tr><td colspan="4" class="p-8 text-center text-stone-400">データなし</td></tr>'}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        const SfaDetailView = {
+            render() {
+                const id = location.hash.split('?id=')[1];
+                const c = Store.state.customers.find(x => x.id == id);
+                if (!c) return '<div class="p-8">見つからない</div>';
+
+                const history = (c.history || []).slice().reverse().map(h => `
+                    <div class="flex gap-4 mb-8 group relative">
+                        <div class="w-24 text-right pt-2 shrink-0 border-r-2 border-stone-200 pr-4 relative">
+                            <div class="absolute right-[-5px] top-[14px] w-2 h-2 rounded-full bg-stone-400 group-hover:bg-orange-600 transition-colors"></div>
+                            <div class="text-xs font-bold font-mono text-stone-500">${h.date}</div>
+                            <div class="text-[10px] text-stone-400 mt-1 font-bold bg-stone-100 inline-block px-1">${h.phase}</div>
+                        </div>
+                        <div class="flex-1 pt-1">
+                             <div class="text-[10px] text-stone-400 font-bold mb-1"><i class="fa-solid fa-user-tag mr-1"></i>${h.contactPerson || '相手不明'}</div>
+                            <div class="text-sm font-bold text-stone-800 mb-2">${h.projectName}</div>
+                            <div class="bg-white p-4 border border-stone-200 shadow-sm mb-2 hover:shadow-md transition-shadow">
+                                <div class="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">${h.note}</div>
+                            </div>
+                            ${h.smallTalk ? `<div class="bg-yellow-50 p-3 border border-yellow-200 text-sm text-stone-600 mb-2 italic"><i class="fa-solid fa-mug-hot text-yellow-500 mr-2"></i>"${h.smallTalk}"</div>` : ''}
+                            ${h.aiAdvice ? `<div class="bg-stone-800 p-4 text-stone-300 text-xs leading-relaxed mt-2 border-l-4 border-orange-600 relative overflow-hidden"><div class="font-bold text-orange-500 mb-2 font-serif flex items-center justify-between"><span>陣内の助言</span><i class="fa-solid fa-user-secret opacity-20 text-2xl"></i></div><div class="grid grid-cols-2 gap-4"><div><span class="block text-stone-500 font-bold mb-1">分析</span>${h.aiAdvice.analysis}</div><div><span class="block text-stone-500 font-bold mb-1">次手</span>${h.aiAdvice.nextMove}</div><div class="col-span-2 border-t border-stone-700 pt-2"><span class="block text-stone-500 font-bold mb-1">関係</span>${h.aiAdvice.relationship}</div></div></div>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                const contactList = (c.contacts || []).map((p, idx) => `
+                    <div class="flex items-center gap-2 mb-2 group/item">
+                        <div class="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-[10px] shrink-0"><i class="fa-solid fa-user"></i></div>
+                        <input type="text" value="${p.name}" onchange="App.updateContact('${c.id}', ${idx}, 'name', this.value)" class="bg-transparent border-b border-stone-300 focus:border-orange-500 focus:outline-none text-sm font-bold text-stone-700 w-24" placeholder="氏名">
+                        <input type="text" value="${p.role || ''}" onchange="App.updateContact('${c.id}', ${idx}, 'role', this.value)" class="bg-transparent border-b border-stone-300 focus:border-stone-500 focus:outline-none text-[10px] text-stone-500 w-16" placeholder="役職">
+                        <button onclick="App.deleteContact('${c.id}', ${idx})" class="text-stone-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity"><i class="fa-solid fa-times"></i></button>
+                    </div>
+                `).join('') + `<button onclick="App.addContact('${c.id}')" class="text-xs text-orange-600 hover:underline flex items-center gap-1 mt-2 ml-1"><i class="fa-solid fa-plus-circle"></i> 追加</button>`;
+
+                const contactOptions = (c.contacts || []).map(p => `<option value="${p.name}">${p.name} (${p.role || '担当'})</option>`).join('');
+
+                // 3-Column Layout
+                return `
+                    <div class="h-full grid grid-cols-12 divide-x divide-stone-200 bg-white">
+                        <!-- COL 1: Info (3/12) -->
+                        <div class="col-span-3 p-6 overflow-y-auto bg-stone-50/50">
+                             <input type="text" value="${c.name}" onchange="App.updateCustomer('${c.id}', 'name', this.value)" class="text-2xl font-bold bg-transparent border-none text-stone-900 focus:outline-none w-full serif mb-4" placeholder="会社名">
+                             <select onchange="App.updateCustomer('${c.id}', 'category', this.value)" class="w-full text-xs font-bold py-2 px-3 rounded bg-white border border-stone-300 focus:outline-none focus:border-orange-500 cursor-pointer mb-6">
+                                ${['主要顧客', '中堅顧客', '新規・休眠', '施主・役所'].map(cat => `<option ${c.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                             </select>
+
+                             <div class="mb-6">
+                                <label class="text-[10px] font-bold text-stone-400 block mb-2 uppercase tracking-wider">担当者 (CONTACTS)</label>
+                                ${contactList}
+                             </div>
+
+                             <div class="space-y-4 pt-6 border-t border-stone-200">
+                                <div><div class="flex justify-between text-xs font-bold text-stone-500 mb-1">友好度: ${c.friendship || 3}</div><input type="range" min="1" max="5" value="${c.friendship || 3}" onchange="App.updateCustomer('${c.id}', 'friendship', Number(this.value))" class="w-full h-1 bg-stone-300 rounded-none accent-stone-800 cursor-pointer"></div>
+                                <div><div class="flex justify-between text-xs font-bold text-stone-500 mb-1">規模: ${c.scale || 3}</div><input type="range" min="1" max="5" value="${c.scale || 3}" onchange="App.updateCustomer('${c.id}', 'scale', Number(this.value))" class="w-full h-1 bg-stone-300 rounded-none accent-stone-800 cursor-pointer"></div>
+                             </div>
+                        </div>
+
+                        <!-- COL 2: Activity Form (4/12) -->
+                        <div class="col-span-4 p-6 overflow-y-auto bg-white shadow-[0_0_15px_rgba(0,0,0,0.02)] z-10">
+                            <h3 class="font-bold text-stone-800 mb-6 flex items-center"><span class="bg-stone-900 w-2 h-2 mr-2"></span>活動報告 (REPORT)</h3>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">日付</label><input type="date" id="act-date" class="w-full input-subtle text-sm py-1 font-mono" value="${new Date().toISOString().split('T')[0]}"></div>
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">相手</label><select id="act-person" class="w-full input-subtle text-sm py-1 font-bold">${contactOptions || '<option value="">未登録</option>'}</select></div>
+                                </div>
+                                <div><label class="text-[10px] font-bold text-stone-400 block mb-1">案件名</label><input type="text" id="act-project" class="w-full input-subtle text-sm py-1 font-bold" placeholder="○○邸 新築工事"></div>
+                                <div><label class="text-[10px] font-bold text-stone-400 block mb-1">フェーズ</label><select id="act-phase" class="w-full input-subtle text-sm py-1 font-bold"><option>基本設計</option><option>実施設計</option><option>積算</option><option>着工</option><option>引渡</option></select></div>
+                                
+                                <div class="relative"><label class="text-[10px] font-bold text-stone-400 block mb-1">商談内容</label><textarea id="act-note" class="w-full h-32 p-3 bg-stone-50 border border-stone-200 text-sm resize-none focus:outline-none focus:border-stone-800" placeholder="要点を簡潔に..."></textarea><button onclick="App.startVoice('act-note')" class="absolute right-2 bottom-2 text-stone-400 hover:text-orange-600"><i class="fa-solid fa-microphone"></i></button></div>
+                                <div class="relative bg-yellow-50 p-3 border border-yellow-200"><label class="text-[10px] font-bold text-yellow-600 block mb-1">雑談・近況 (重要)</label><textarea id="act-smalltalk" class="w-full h-20 bg-transparent text-sm resize-none focus:outline-none" placeholder="趣味、休暇の予定..."></textarea><button onclick="App.startVoice('act-smalltalk')" class="absolute right-1 bottom-1 text-yellow-400 hover:text-yellow-600"><i class="fa-solid fa-microphone"></i></button></div>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">次回アクション</label><input type="text" id="act-next-action" class="w-full input-subtle text-sm py-1" placeholder="見積提出..."></div>
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">次回予定日</label><input type="date" id="act-next-date" class="w-full input-subtle text-sm py-1 font-mono"></div>
+                                </div>
+                                <button onclick="App.addActivity('${c.id}')" class="w-full bg-stone-900 text-white py-4 font-bold tracking-widest hover:bg-stone-800 shadow-xl transition-transform active:scale-[0.98]">報告＆AI分析</button>
+                            </div>
+                        </div>
+
+                        <!-- COL 3: History (5/12) -->
+                        <div class="col-span-5 p-6 overflow-y-auto bg-[#f5f5f4]">
+                            <h3 class="text-stone-300 font-bold mb-6 text-xs uppercase tracking-widest text-center border-b border-stone-200 leading-[0.1em]"><span class="bg-[#f5f5f4] px-4">活動履歴 (HISTORY)</span></h3>
+                            <div class="pb-20">${history || '<div class="text-center py-20 text-stone-400 italic font-serif">まだ歴史はない。</div>'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Email Modal (Re-used) -->
+                    <dialog id="email-modal" class="p-0 rounded-sm shadow-2xl w-[600px] backdrop:bg-stone-900/50 m-auto open:animate-fade-in border-t-4 border-stone-800"><div class="bg-white p-8"><div class="flex justify-between items-center mb-6"><h3 class="font-bold text-lg text-stone-900 serif">Generated Email</h3><button onclick="document.getElementById('email-modal').close()" class="text-stone-400 hover:text-stone-800"><i class="fa-solid fa-xmark"></i></button></div><p class="text-xs text-stone-400 mb-2">以下をコピーして使え。</p><textarea id="email-content" class="w-full h-64 text-sm p-4 bg-stone-50 border border-stone-200 mb-6 font-mono text-stone-700 leading-relaxed focus:outline-none resize-none"></textarea><button onclick="navigator.clipboard.writeText(document.getElementById('email-content').value); alert('コピーした。')" class="w-full px-4 py-3 bg-orange-600 text-white font-bold tracking-widest hover:bg-orange-500 transition-colors shadow">クリップボードにコピー</button></div></dialog>
+                `;
+            }
+        }
+
+        const NightView = {
+            render() { return `<div class="p-8 max-w-2xl mx-auto py-12 animate-fade-in pb-24"><div class="text-center mb-12"><h2 class="text-3xl font-bold text-stone-900 serif mb-2">夜の報告</h2><p class="text-stone-400 text-sm">「不完全」でいい、全部ここに吐き出せ。</p></div><div class="bg-white p-8 shadow-xl border border-stone-200 rounded-sm mb-8 relative"><div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-stone-900 to-stone-500"></div><h3 class="font-bold text-stone-700 mb-4 flex items-center justify-between"><span><i class="fa-solid fa-pen-nib mr-2"></i>今日の完了リスト (Done List)</span><span class="text-[10px] text-stone-400 font-normal">些細なことでも書け。</span></h3><textarea id="night-report-text" class="w-full h-64 p-4 text-base leading-relaxed bg-stone-50 border border-stone-200 focus:border-stone-400 focus:outline-none resize-none" placeholder="・A社の件、電話一本入れた&#13;&#10;・机を整理した..."></textarea></div><button onclick="App.finishDay()" class="w-full bg-stone-900 text-white py-5 font-bold text-lg tracking-[0.2em] hover:bg-orange-800 transition-colors shadow-2xl">業務終了</button></div>`; }
+        }
+
+        const AnalysisView = {
+            render() {
+                const dots = Store.state.customers.map(c => {
+                    const x = ((c.friendship || 3) - 1) / 4 * 100;
+                    const y = 100 - ((c.scale || 3) - 1) / 4 * 100;
+                    return `<div onclick="location.hash='#sfa_detail?id=${c.id}'" class="absolute w-4 h-4 rounded-full bg-stone-800 border-2 border-white shadow-lg cursor-pointer hover:bg-orange-600 hover:scale-125 transition-all group" style="left:${x}%; top:${y}%; margin-left:-8px; margin-top:-8px;"><span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">${c.name}</span></div>`;
+                }).join('');
+                return `<div class="h-full flex flex-col animate-fade-in pb-12 p-8"><h2 class="text-2xl font-bold text-stone-800 serif mb-6">戦略地図</h2><div class="flex-1 bg-white border border-stone-200 shadow-sm relative rounded-sm overflow-hidden m-4" style="background-image: radial-gradient(#d6d3d1 1px, transparent 1px); background-size: 40px 40px;"><div class="absolute left-1/2 top-4 bottom-4 w-px bg-stone-400 border-l border-dashed border-stone-400"></div><div class="absolute top-1/2 left-4 right-4 h-px bg-stone-400 border-t border-dashed border-stone-400"></div><div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（大）</div><div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（小）</div><div class="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（高）</div><div class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（低）</div><div class="absolute inset-8">${dots}</div></div><p class="text-center text-stone-400 text-xs font-serif">"右上の客を狙え。そこが一番美味い。"</p></div>`;
+            }
+        }
+
+        const NewCustomerModal = {
+            render() {
+                return `
+                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div class="bg-white p-8 w-[480px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative">
+                            <button onclick="App.closeModal()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                            <h2 class="font-bold text-xl mb-6 serif text-stone-800">新規顧客登録</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-stone-400 mb-1">会社名 (Company Name)</label>
+                                    <input type="text" id="new-name" class="w-full border-b border-stone-300 py-2 outline-none text-lg font-bold text-stone-800 focus:border-orange-500 cursor-text" placeholder="例: ○○建設 株式会社" autofocus>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-stone-400 mb-1">区分 (Category)</label>
+                                    <select id="new-cat" class="w-full border-b border-stone-300 py-2 outline-none text-sm bg-transparent">
+                                        <option>主要顧客</option><option selected>中堅顧客</option><option>新規・休眠</option><option>施主・役所</option>
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">担当者名 (Contact)</label>
+                                        <input type="text" id="new-p-name" class="w-full border-b border-stone-300 py-2 outline-none text-sm" placeholder="担当者氏名">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">役職 (Role)</label>
+                                        <input type="text" id="new-p-role" class="w-full border-b border-stone-300 py-2 outline-none text-sm" placeholder="部長、監督など">
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="App.saveNewCustomer()" class="w-full bg-stone-900 text-white mt-8 py-3 font-bold tracking-widest hover:bg-orange-600 transition-colors shadow-lg">
+                                登録
+                            </button>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        // --- Core ---
+        window.App = {
+            init() {
+                Store.init();
+                window.addEventListener('hashchange', () => this.route());
+
+                // Keyboard shortcut escape
+                window.onkeydown = (e) => { if (e.key === 'Escape') this.closeModal(); };
+
+                if (!location.hash) location.hash = '#dashboard';
+                else this.route();
+            },
+            openSettings() { document.getElementById('modal-root').innerHTML = SettingsModal.render(); },
+            openNewCustomerModal() { document.getElementById('modal-root').innerHTML = NewCustomerModal.render(); },
+            closeModal() { document.getElementById('modal-root').innerHTML = ''; },
+
+            saveNewCustomer() {
+                const name = document.getElementById('new-name').value;
+                const cat = document.getElementById('new-cat').value;
+                const pName = document.getElementById('new-p-name').value;
+                const pRole = document.getElementById('new-p-role').value;
+
+                if (!name) { alert('会社名は必須だ。'); return; }
+
+                const newC = {
+                    id: 'c_' + Date.now(),
+                    name: name,
+                    category: cat,
+                    contacts: pName ? [{ name: pName, role: pRole }] : [],
+                    phase: '基本設計', rank: 1, friendship: 3, scale: 3, lastVisit: '', history: []
+                };
+
+                Store.update('customers', [...Store.state.customers, newC]);
+                this.closeModal();
+                location.hash = '#sfa_detail?id=' + newC.id;
+            },
+
+            route() {
+                const hash = location.hash.slice(1) || 'dashboard';
+                const baseHash = hash.split('?')[0];
+                const view = {
+                    'dashboard': DashboardView, 'morning': MorningView, 'sfa': SfaListView,
+                    'sfa_detail': SfaDetailView, 'night': NightView, 'analysis': AnalysisView
+                }[baseHash];
+
+                document.getElementById('view-container').innerHTML = view ? view.render() : 'Not Found';
+
+                document.querySelectorAll('.sidebar-item').forEach(el => {
+                    if (el.getAttribute('data-view') === baseHash) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+            },
+
+            // Morning Logic
+            morningNext() {
+                const plan = document.getElementById('inp-plan').value;
+                const spec = document.getElementById('inp-spec').value;
+                const net = document.getElementById('inp-net').value;
+                const raw = document.getElementById('inp-tasks').value;
+                Store.updateKpi('plan', plan); Store.updateKpi('spec', spec); Store.updateKpi('net', net);
+
+                // Parse tasks to array immediately for display
+                const taskList = raw.split('\n').filter(t => t.trim()).map((t, i) => ({ id: Date.now() + i, text: t, done: false }));
+                if (taskList.length) Store.update('tasks', taskList);
+
+                MorningView.step = 2;
+                this.route();
+            },
+
+            // Actions
+            toggleTask(id) {
+                const t = Store.state.tasks.find(x => x.id === id);
+                if (t) { t.done = !t.done; Store.update('tasks', Store.state.tasks); this.route(); }
+            },
+            updateCustomer(id, k, v) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === id);
+                if (c) { c[k] = v; Store.update('customers', list); }
+            },
+            addContact(cid) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === cid);
+                if (c) {
+                    if (!c.contacts) c.contacts = [];
+                    c.contacts.push({ name: '', role: '' });
+                    Store.update('customers', list);
+                    App.route();
+                }
+            },
+            updateContact(cid, idx, k, v) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === cid);
+                if (c && c.contacts[idx]) {
+                    c.contacts[idx][k] = v;
+                    Store.update('customers', list);
+                }
+            },
+            deleteContact(cid, idx) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === cid);
+                if (c && confirm('削除スルカ？')) {
+                    c.contacts.splice(idx, 1);
+                    Store.update('customers', list);
+                    App.route();
+                }
+            },
+
+            // AI Functions
+            async runMorningRoutine() {
+                const theme = document.getElementById('inp-theme').value;
+                const win = document.getElementById('inp-win').value;
+                Store.updateKpi('theme', theme);
+                Store.updateKpi('winningCondition', win);
+
+                const tasks = Store.state.tasks;
+                if (!tasks.length) { alert('タスクがない。STEP1で入力しろ。'); return; }
+
+                document.getElementById('loading').classList.remove('hidden');
+
+                const prompt = `
+                    ユーザーの今日のテーマ: ${theme}
+                    勝利条件: ${win}
+                    タスク数: ${tasks.length}
+                    
+                    指示:
+                    1. 挨拶: テーマと勝利条件を踏まえて、背中を押す短い一言 (皮肉屋だが熱い)。
+                    2. タスク分析: 各タスクを3つのマイクロステップに分割。
+                    
+                    出力JSON: { "message": "...", "analyzedTasks": [{ "originalText": "(task text matches input)", "steps": ["...", "..."] }] }
+                `;
+
+                try {
+                    // Send task texts to match
+                    const taskTxt = tasks.map(t => t.text).join('\n');
+                    const txt = await GeminiService.generate(prompt + "\nタスクリスト:\n" + taskTxt);
+
+                    if (!txt) return; // Error handled in service (alert shown)
+
+                    const match = txt.match(/\{.*\}/s);
+                    if (!match) throw new Error('AI output format error');
+
+                    const json = JSON.parse(match[0]);
+
+                    // Merge microsteps
+                    const newTasks = tasks.map((t, i) => {
+                        const analysis = json.analyzedTasks[i] || {};
+                        return { ...t, microSteps: analysis.steps || [] };
+                    });
+                    Store.update('tasks', newTasks);
+                    Store.update('morningMessage', json.message);
+                    MorningView.step = 1; // Reset
+                    location.hash = '#dashboard';
+                } catch (e) {
+                    console.error(e);
+                    alert('AIの機嫌が悪いようだ。タスクはそのままで進めるぞ。');
+                    MorningView.step = 1;
+                    location.hash = '#dashboard';
+                }
+                finally { document.getElementById('loading').classList.add('hidden'); }
+            },
+
+            async addActivity(cid) {
+                const note = document.getElementById('act-note').value;
+                if (!note) return;
+                const c = Store.state.customers.find(x => x.id === cid);
+
+                document.getElementById('loading').classList.remove('hidden');
+                const prompt = `
+                    商談報告:
+                    顧客: ${c.name}
+                    相手: ${document.getElementById('act-person').value || '不明'}
+                    内容: ${note}
+                    雑談: ${document.getElementById('act-smalltalk').value}
+                    フェーズ: ${document.getElementById('act-phase').value}
+                    
+                    指示:
+                    ・「陣内」として鋭く分析せよ。
+                    ・出力JSON: { "advice": { "analysis": "...", "nextMove": "...", "relationship": "..." }, "email": "..." }
+                `;
+
+                let advice = null;
+                try {
+                    const txt = await GeminiService.generate(prompt);
+                    const json = JSON.parse(txt.match(/\{.*\}/s)[0]);
+                    advice = json.advice;
+                    document.getElementById('email-content').value = json.email;
+                    document.getElementById('email-modal').showModal();
+                } catch (e) { console.error(e); }
+
+                c.history.push({
+                    date: document.getElementById('act-date').value,
+                    phase: document.getElementById('act-phase').value,
+                    projectName: document.getElementById('act-project').value,
+                    note: note,
+                    contactPerson: document.getElementById('act-person').value,
+                    smallTalk: document.getElementById('act-smalltalk').value,
+                    nextAction: document.getElementById('act-next-action').value,
+                    aiAdvice: advice
+                });
+                c.lastVisit = document.getElementById('act-date').value;
+                Store.update('customers', Store.state.customers);
+
+                document.getElementById('loading').classList.add('hidden');
+                this.route();
+            },
+
+            async finishDay() {
+                const report = document.getElementById('night-report-text').value;
+                if (!report) { alert('何も書いてないぞ。'); return; }
+                document.getElementById('loading').classList.remove('hidden');
+                try {
+                    const txt = await GeminiService.generate(`完了リスト:\n${report}\n今日のテーマ:${Store.state.dailyKpi.theme}\n労え。`);
+                    alert('業務終了。\n\n陣内: 「' + txt + '」');
+                } catch (e) { alert('お疲れ。'); }
+                finally { document.getElementById('loading').classList.add('hidden'); }
+            },
+
+            startVoice(id) {
+                if (!('webkitSpeechRecognition' in window)) { alert('Chrome推奨だ。'); return; }
+                const r = new webkitSpeechRecognition();
+                r.lang = 'ja-JP';
+                r.onresult = e => { const el = document.getElementById(id); el.value = (el.value + ' ' + e.results[0][0].transcript).trim(); };
+                r.start();
+            }
+        };
+
+        const SettingsModal = {
+            render() {
+                return `
+                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50" onclick="if(event.target===this) App.closeModal()">
+                        <div class="bg-white p-8 w-96 shadow-2xl border-t-4 border-stone-800 animate-fade-in relative">
+                             <button onclick="App.closeModal()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                            <h2 class="font-bold text-lg mb-6 serif">システム設定</h2>
+                            <label class="block mb-4">
+                                <span class="text-xs font-bold text-stone-400">GEMINI API KEY</span>
+                                <input type="password" id="set-key" class="w-full border-b border-stone-300 py-1 outline-none text-sm font-mono" value="${Store.state.userSettings.apiKey}">
+                            </label>
+                            <label class="block mb-4">
+                                <span class="text-xs font-bold text-stone-400">ユーザー名</span>
+                                <input type="text" id="set-name" class="w-full border-b border-stone-300 py-1 outline-none text-sm" value="${Store.state.userSettings.userName}">
+                            </label>
+                            <div class="grid grid-cols-2 gap-4 mb-8">
+                                <div>
+                                    <span class="text-xs font-bold text-stone-400">AIモデル名</span>
+                                    <input type="text" id="set-model" class="w-full border-b border-stone-300 py-1 outline-none text-sm font-mono" value="${Store.state.userSettings.aiModel || 'gemini-1.5-flash'}">
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-stone-400">API Ver</span>
+                                    <select id="set-ver" class="w-full border-b border-stone-300 py-1 outline-none text-sm">
+                                        <option value="v1" ${Store.state.userSettings.apiVersion === 'v1' ? 'selected' : ''}>v1</option>
+                                        <option value="v1beta" ${Store.state.userSettings.apiVersion === 'v1beta' ? 'selected' : ''}>v1beta</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-6 p-3 bg-stone-50 border border-stone-200 text-[10px] text-stone-500 rounded-sm">
+                                <div id="test-result" class="mb-2 italic">接続テスト未実行</div>
+                                <button onclick="App.testAiConnection()" class="text-indigo-600 font-bold hover:underline">
+                                    <i class="fa-solid fa-vial mr-1"></i>接続テストを実行
+                                </button>
+                            </div>
+                            <button onclick="Store.update('userSettings', {apiKey: document.getElementById('set-key').value, userName: document.getElementById('set-name').value, aiModel: document.getElementById('set-model').value, apiVersion: document.getElementById('set-ver').value}); App.closeModal(); alert('保存した。')" class="w-full bg-stone-900 text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-orange-600 transition-colors">
+                                保存
+                            </button>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        // Add to App object
+        App.testAiConnection = async function () {
+            const btn = event.target.closest('button');
+            const resEl = document.getElementById('test-result');
+            btn.disabled = true;
+            resEl.textContent = 'テスト中...';
+
+            // Temporary update state from DOM to test current inputs
+            const original = Store.state.userSettings;
+            Store.state.userSettings = {
+                apiKey: document.getElementById('set-key').value,
+                userName: document.getElementById('set-name').value,
+                aiModel: document.getElementById('set-model').value,
+                apiVersion: document.getElementById('set-ver').value
+            };
+
+            const result = await GeminiService.testConnection();
+            resEl.textContent = result.message;
+            resEl.className = result.success ? 'mb-2 text-green-600 font-bold' : 'mb-2 text-red-600 font-bold';
+
+            Store.state.userSettings = original; // Revert until saved
+            btn.disabled = false;
+        };
+
+        window.onload = () => App.init();
+    </script>
+</body>
+
+</html>
