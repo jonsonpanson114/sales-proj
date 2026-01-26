@@ -189,7 +189,7 @@
             state: {
                 userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-3-flash-preview', apiVersion: 'v1beta' },
                 dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
-                tasks: [], customers: [], morningMessage: '',
+                tasks: [], customers: [], dailyLogs: [], morningMessage: '',
             },
             init() {
                 try {
@@ -217,6 +217,7 @@
                                 parsed.userSettings.apiVersion = 'v1beta';
                             }
                         }
+                        if (!parsed.dailyLogs) parsed.dailyLogs = [];
                         this.state = { ...this.state, ...parsed };
                     }
                 } catch (e) {
@@ -236,6 +237,17 @@
             updateKpi(k, v) {
                 this.state.dailyKpi[k] = v;
                 this.save();
+            },
+            saveDailyLog(type, data) {
+                const date = new Date().toISOString().split('T')[0];
+                let logs = [...this.state.dailyLogs];
+                let log = logs.find(l => l.date === date);
+                if (!log) {
+                    log = { date, morning: null, night: null };
+                    logs.push(log);
+                }
+                log[type] = { ...log[type], ...data };
+                this.update('dailyLogs', logs);
             },
             updateHeader() {
                 const fmt = n => n ? '¥' + Number(n).toLocaleString() : '---';
@@ -603,7 +615,89 @@
         }
 
         const NightView = {
-            render() { return `<div class="p-8 max-w-2xl mx-auto py-12 animate-fade-in pb-24"><div class="text-center mb-12"><h2 class="text-3xl font-bold text-stone-900 serif mb-2">夜の報告</h2><p class="text-stone-400 text-sm">「不完全」でいい、全部ここに吐き出せ。</p></div><div class="bg-white p-8 shadow-xl border border-stone-200 rounded-sm mb-8 relative"><div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-stone-900 to-stone-500"></div><h3 class="font-bold text-stone-700 mb-4 flex items-center justify-between"><span><i class="fa-solid fa-pen-nib mr-2"></i>今日の完了リスト (Done List)</span><span class="text-[10px] text-stone-400 font-normal">些細なことでも書け。</span></h3><textarea id="night-report-text" class="w-full h-64 p-4 text-base leading-relaxed bg-stone-50 border border-stone-200 focus:border-stone-400 focus:outline-none resize-none" placeholder="・A社の件、電話一本入れた&#13;&#10;・机を整理した..."></textarea></div><button onclick="App.finishDay()" class="w-full bg-stone-900 text-white py-5 font-bold text-lg tracking-[0.2em] hover:bg-orange-800 transition-colors shadow-2xl">業務終了</button></div>`; }
+            render() {
+                const s = Store.state;
+                const doneTasks = s.tasks.filter(t => t.done).map(t => `
+                    <div class="flex items-center gap-2 text-stone-400 text-xs mb-1">
+                        <i class="fa-solid fa-circle-check text-orange-600/50"></i>
+                        <span>${t.text}</span>
+                    </div>
+                `).join('');
+
+                const historicalLogs = [...s.dailyLogs].reverse().map(l => {
+                    if (!l.night && !l.morning) return '';
+                    return `
+                        <div class="border-l border-stone-800 pl-6 py-4 mb-8 group hover:border-orange-600 transition-colors">
+                            <div class="text-[10px] font-bold text-stone-600 uppercase tracking-widest mb-2 font-mono group-hover:text-stone-400">
+                                ${l.date} ${l.night?.timestamp || ''}
+                            </div>
+                            ${l.morning ? `<div class="text-xs text-indigo-400 font-serif mb-2 italic">「${l.morning.theme}」- ${l.morning.win}</div>` : ''}
+                            ${l.night ? `<div class="text-sm text-stone-300 leading-relaxed font-serif whitespace-pre-wrap">${l.night.report}</div>` : ''}
+                            ${l.night?.aiAdvice ? `<div class="mt-3 text-[10px] text-stone-500 italic bg-stone-900 px-3 py-2 border-l-2 border-orange-800">陣内: 「${l.night.aiAdvice}」</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="h-full bg-stone-950 text-stone-300 overflow-y-auto animate-fade-in p-8 pb-32">
+                        <div class="max-w-4xl mx-auto py-12">
+                            <div class="text-center mb-16">
+                                <h2 class="text-sm font-bold tracking-[0.4em] text-orange-600 uppercase mb-4 font-sans">Midnight Journal</h2>
+                                <h1 class="text-4xl font-serif text-stone-100 mb-2">一日の終わりに</h1>
+                                <p class="text-stone-500 font-serif italic text-sm">"今日という日は、二度と来ない。だからこそ、記す価値がある。"</p>
+                            </div>
+
+                            <div class="grid grid-cols-12 gap-12">
+                                <!-- Left: History & Achievements -->
+                                <div class="col-span-12 lg:col-span-4 space-y-12">
+                                    <div class="space-y-6">
+                                        <div class="bg-stone-900/50 p-6 border-l border-stone-800">
+                                            <h3 class="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-4">今日の足跡</h3>
+                                            <div class="space-y-1">${doneTasks || '<div class="text-stone-600 italic text-xs">何も成し遂げなかったか？<br>それもまた一日だ。</div>'}</div>
+                                        </div>
+                                        
+                                        <div class="bg-indigo-950/30 p-6 border-l border-indigo-500/30">
+                                            <h3 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">勝利条件の確認</h3>
+                                            <p class="text-sm text-stone-300 font-serif">${s.dailyKpi.winningCondition || '未設定'}</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Historical Logs -->
+                                    <div class="pt-8 border-t border-stone-900">
+                                        <h3 class="text-xs font-bold text-stone-600 uppercase tracking-[0.2em] mb-8">過去の記録</h3>
+                                        <div class="max-h-[600px] overflow-y-auto pr-4 scrollbar-hide">
+                                            ${historicalLogs || '<div class="text-[10px] text-stone-700 italic font-mono">歴史は白紙だ。</div>'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right: Journal Entry -->
+                                <div class="col-span-12 lg:col-span-8">
+                                    <div class="relative group">
+                                        <div class="absolute -inset-1 bg-gradient-to-b from-stone-800 to-transparent opacity-20 rounded-sm blur transition duration-1000 group-hover:opacity-40"></div>
+                                        <div class="relative bg-stone-900 border border-stone-800 p-8 shadow-2xl">
+                                            <h3 class="text-stone-500 font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <i class="fa-solid fa-pen-fancy text-orange-600"></i> 夜の報告 (Night Report)
+                                            </h3>
+                                            <textarea id="night-report-text" 
+                                                class="w-full h-80 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700" 
+                                                placeholder="静かな夜だ。今日の戦果と、明日の自分への伝言を綴れ..."></textarea>
+                                            
+                                            <div class="mt-8 flex justify-end">
+                                                <button onclick="App.finishDay()" 
+                                                    class="group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-200 bg-stone-100/10 border border-stone-700 hover:bg-orange-600 hover:border-orange-500 hover:text-white active:scale-95 overflow-hidden">
+                                                    <span class="relative tracking-[0.3em]">業務終了</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] text-stone-600 text-right mt-4 italic">この記録は、お前の成長という名の歴史になる。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         }
 
         const AnalysisView = {
@@ -802,8 +896,13 @@
                         const analysis = json.analyzedTasks[i] || {};
                         return { ...t, microSteps: analysis.steps || [] };
                     });
-                    Store.update('tasks', newTasks);
-                    Store.update('morningMessage', json.message);
+                    this.saveDailyLog('morning', {
+                        theme,
+                        win,
+                        tasks: newTasks.map(t => t.text),
+                        message: json.message
+                    });
+
                     MorningView.step = 1; // Reset
                     location.hash = '#dashboard';
                 } catch (e) {
@@ -866,6 +965,13 @@
                 document.getElementById('loading').classList.remove('hidden');
                 try {
                     const txt = await GeminiService.generate(`完了リスト:\n${report}\n今日のテーマ:${Store.state.dailyKpi.theme}\n労え。`);
+
+                    Store.saveDailyLog('night', {
+                        report,
+                        aiAdvice: txt,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+
                     alert('業務終了。\n\n陣内: 「' + txt + '」');
                 } catch (e) { alert('お疲れ。'); }
                 finally { document.getElementById('loading').classList.add('hidden'); }
