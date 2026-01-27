@@ -615,6 +615,12 @@
         }
 
         const NightView = {
+            viewYear: new Date().getFullYear(),
+            viewMonth: new Date().getMonth(),
+            selectedDate: new Date().toISOString().split('T')[0],
+            isReflecting: false,
+            lastAdvice: '',
+
             render() {
                 const s = Store.state;
                 const doneTasks = s.tasks.filter(t => t.done).map(t => `
@@ -624,32 +630,107 @@
                     </div>
                 `).join('');
 
-                const historicalLogs = [...s.dailyLogs].reverse().map(l => {
-                    if (!l.night && !l.morning) return '';
-                    return `
-                        <div class="border-l border-stone-800 pl-6 py-4 mb-8 group hover:border-orange-600 transition-colors">
-                            <div class="text-[10px] font-bold text-stone-600 uppercase tracking-widest mb-2 font-mono group-hover:text-stone-400">
-                                ${l.date} ${l.night?.timestamp || ''}
+                // Selected Log Detail
+                const log = s.dailyLogs.find(l => l.date === this.selectedDate);
+                let logDetail = '';
+                if (log) {
+                    logDetail = `
+                        <div class="border-l-4 border-orange-600 pl-6 py-6 bg-stone-900/40 rounded-sm animate-fade-in shadow-inner">
+                            <div class="text-xs font-bold text-stone-500 uppercase tracking-[0.2em] mb-4 font-mono flex justify-between items-center">
+                                <span>${log.date} ${log.night?.timestamp || ''}</span>
+                                <span class="text-[10px] bg-stone-800 px-2 py-0.5 text-stone-400">ARCHIVE</span>
                             </div>
-                            ${l.morning ? `<div class="text-xs text-indigo-400 font-serif mb-2 italic">「${l.morning.theme}」- ${l.morning.win}</div>` : ''}
-                            ${l.night ? `<div class="text-sm text-stone-300 leading-relaxed font-serif whitespace-pre-wrap">${l.night.report}</div>` : ''}
-                            ${l.night?.aiAdvice ? `<div class="mt-3 text-[10px] text-stone-500 italic bg-stone-900 px-3 py-2 border-l-2 border-orange-800">陣内: 「${l.night.aiAdvice}」</div>` : ''}
+                            ${log.morning ? `
+                                <div class="mb-6">
+                                    <div class="text-xs text-indigo-400 font-serif mb-1 italic">テーマ: 「${log.morning.theme}」</div>
+                                    <div class="text-[10px] text-stone-400 font-bold mb-2 uppercase tracking-widest opacity-50">勝利条件: ${log.morning.win}</div>
+                                    <div class="text-[10px] text-stone-500 flex flex-wrap gap-2">
+                                        ${log.morning.tasks ? log.morning.tasks.map(t => `<span class="bg-stone-800 px-2 py-0.5"># ${t}</span>`).join('') : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${log.night ? `
+                                <div class="text-lg text-stone-100 leading-relaxed font-serif whitespace-pre-wrap mb-6 border-t border-stone-800 pt-6">${log.night.report}</div>
+                            ` : ''}
+                            ${log.night?.aiAdvice ? `
+                                <div class="mt-8 p-6 bg-stone-950 border border-stone-800 relative overflow-hidden">
+                                    <div class="absolute right-[-10px] bottom-[-10px] opacity-5 text-6xl text-orange-600"><i class="fa-solid fa-user-secret"></i></div>
+                                    <div class="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-3">陣内の助言</div>
+                                    <div class="text-sm text-stone-400 leading-relaxed font-serif relative z-10">${log.night.aiAdvice}</div>
+                                </div>
+                            ` : ''}
                         </div>
                     `;
-                }).join('');
+                } else {
+                    logDetail = `
+                        <div class="h-64 flex flex-col items-center justify-center border border-dashed border-stone-800 rounded-lg text-stone-700">
+                            <i class="fa-solid fa-scroll text-4xl mb-4 opacity-20"></i>
+                            <div class="font-serif italic text-sm">この日の記録はない。</div>
+                            <div class="text-[10px] mt-2 uppercase tracking-widest">No Record for ${this.selectedDate}</div>
+                        </div>
+                    `;
+                }
+
+                // Calendar Logic
+                const firstDay = new Date(this.viewYear, this.viewMonth, 1).getDay();
+                const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+                const today = new Date().toISOString().split('T')[0];
+                const monthName = new Intl.DateTimeFormat('ja-JP', { month: 'long', year: 'numeric' }).format(new Date(this.viewYear, this.viewMonth));
+
+                let calendarCells = '';
+                // Empty cells
+                for (let i = 0; i < firstDay; i++) {
+                    calendarCells += `<div class="p-2"></div>`;
+                }
+                // Day cells
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${this.viewYear}-${String(this.viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const hasLog = s.dailyLogs.some(l => l.date === dateStr);
+                    const isSelected = dateStr === this.selectedDate;
+                    const isToday = dateStr === today;
+
+                    calendarCells += `
+                        <button onclick="App.selectLogDate('${dateStr}')" 
+                            class="relative h-10 w-full flex items-center justify-center text-xs rounded-sm transition-all
+                            ${isSelected ? 'bg-orange-600 text-white font-bold shadow-lg shadow-orange-900/20' : 'hover:bg-stone-800'}
+                            ${isToday && !isSelected ? 'text-orange-500 border border-orange-900/50' : ''}
+                            ${!isSelected && !isToday ? 'text-stone-400' : ''}">
+                            ${d}
+                            ${hasLog && !isSelected ? '<span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-orange-600 rounded-full animate-pulse"></span>' : ''}
+                        </button>
+                    `;
+                }
 
                 return `
                     <div class="h-full bg-stone-950 text-stone-300 overflow-y-auto animate-fade-in p-8 pb-32">
-                        <div class="max-w-4xl mx-auto py-12">
-                            <div class="text-center mb-16">
-                                <h2 class="text-sm font-bold tracking-[0.4em] text-orange-600 uppercase mb-4 font-sans">Midnight Journal</h2>
-                                <h1 class="text-4xl font-serif text-stone-100 mb-2">一日の終わりに</h1>
-                                <p class="text-stone-500 font-serif italic text-sm">"今日という日は、二度と来ない。だからこそ、記す価値がある。"</p>
+                        <div class="max-w-5xl mx-auto py-12">
+                            <div class="text-center mb-16 px-4">
+                                <h2 class="text-sm font-bold tracking-[0.4em] text-orange-600 uppercase mb-4 font-sans">Evening Reflection</h2>
+                                <h1 class="text-4xl font-serif text-stone-100 mb-2">夕刻の総括</h1>
+                                <p class="text-stone-500 font-serif italic text-sm">"今日を閉じ、明日を拓く。"</p>
                             </div>
 
                             <div class="grid grid-cols-12 gap-12">
-                                <!-- Left: History & Achievements -->
+                                <!-- Left Sidebar: Calendar & Achievements -->
                                 <div class="col-span-12 lg:col-span-4 space-y-12">
+                                    
+                                    <!-- Calendar Component -->
+                                    <div class="bg-stone-900/30 p-6 rounded-sm border border-stone-800/50">
+                                        <div class="flex justify-between items-center mb-6">
+                                            <h3 class="text-xs font-bold text-stone-200">${monthName}</h3>
+                                            <div class="flex gap-1">
+                                                <button onclick="App.changeCalendarMonth(-1)" class="p-1 hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                                                <button onclick="App.changeCalendarMonth(1)" class="p-1 hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                                            ${['日', '月', '火', '水', '木', '金', '土'].map(w => `<div class="text-[10px] font-bold text-stone-600 uppercase">${w}</div>`).join('')}
+                                        </div>
+                                        <div class="grid grid-cols-7 gap-1">
+                                            ${calendarCells}
+                                        </div>
+                                    </div>
+
                                     <div class="space-y-6">
                                         <div class="bg-stone-900/50 p-6 border-l border-stone-800">
                                             <h3 class="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-4">今日の足跡</h3>
@@ -661,36 +742,67 @@
                                             <p class="text-sm text-stone-300 font-serif">${s.dailyKpi.winningCondition || '未設定'}</p>
                                         </div>
                                     </div>
-
-                                    <!-- Historical Logs -->
-                                    <div class="pt-8 border-t border-stone-900">
-                                        <h3 class="text-xs font-bold text-stone-600 uppercase tracking-[0.2em] mb-8">過去の記録</h3>
-                                        <div class="max-h-[600px] overflow-y-auto pr-4 scrollbar-hide">
-                                            ${historicalLogs || '<div class="text-[10px] text-stone-700 italic font-mono">歴史は白紙だ。</div>'}
-                                        </div>
-                                    </div>
                                 </div>
 
-                                <!-- Right: Journal Entry -->
-                                <div class="col-span-12 lg:col-span-8">
-                                    <div class="relative group">
-                                        <div class="absolute -inset-1 bg-gradient-to-b from-stone-800 to-transparent opacity-20 rounded-sm blur transition duration-1000 group-hover:opacity-40"></div>
-                                        <div class="relative bg-stone-900 border border-stone-800 p-8 shadow-2xl">
-                                            <h3 class="text-stone-500 font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <i class="fa-solid fa-pen-fancy text-orange-600"></i> 夜の報告 (Night Report)
-                                            </h3>
-                                            <textarea id="night-report-text" 
-                                                class="w-full h-80 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700" 
-                                                placeholder="静かな夜だ。今日の戦果と、明日の自分への伝言を綴れ..."></textarea>
-                                            
-                                            <div class="mt-8 flex justify-end">
-                                                <button onclick="App.finishDay()" 
-                                                    class="group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-200 bg-stone-100/10 border border-stone-700 hover:bg-orange-600 hover:border-orange-500 hover:text-white active:scale-95 overflow-hidden">
-                                                    <span class="relative tracking-[0.3em]">業務終了</span>
-                                                </button>
+                                <!-- Right: Journal & History Viewer -->
+                                <div class="col-span-12 lg:col-span-8 space-y-12">
+                                    
+                                    <!-- Reflection Mode / History Viewer -->
+                                    ${this.isReflecting ? `
+                                        <div class="space-y-12 animate-fade-in">
+                                            <div class="bg-stone-900 border-t-8 border-orange-600 p-10 shadow-2xl relative">
+                                                <div class="absolute right-6 top-6 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-quote-right"></i></div>
+                                                <h3 class="text-[10px] font-bold text-orange-600 uppercase tracking-[0.3em] mb-6">陣内の総括 (Strategy Advice)</h3>
+                                                <div class="text-xl text-stone-200 leading-relaxed font-serif italic mb-4">「${this.lastAdvice}」</div>
+                                                <div class="text-[10px] text-stone-500 text-right mt-6">--- 営業参謀 陣内 19:xx</div>
+                                            </div>
+
+                                            <div class="bg-stone-900/40 p-10 border border-stone-800">
+                                                <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-2">
+                                                    <i class="fa-solid fa-compass text-indigo-400"></i> 明日の展望 (Next Strategy)
+                                                </h3>
+                                                <div class="space-y-8">
+                                                    <label class="block">
+                                                        <span class="text-[10px] font-bold text-stone-500 block mb-2 uppercase tracking-widest">明日を貫くテーマ</span>
+                                                        <input type="text" id="next-theme" class="w-full bg-transparent border-b border-stone-800 py-2 text-stone-200 focus:outline-none focus:border-indigo-500 text-lg serif" placeholder="例: 攻勢を強める">
+                                                    </label>
+                                                    <label class="block">
+                                                        <span class="text-[10px] font-bold text-stone-500 block mb-2 uppercase tracking-widest">明日の勝利条件</span>
+                                                        <input type="text" id="next-win" class="w-full bg-transparent border-b border-stone-800 py-2 text-stone-200 focus:outline-none focus:border-indigo-500 text-lg serif" placeholder="例: A社の役員と顔を合わせる">
+                                                    </label>
+                                                    <div class="pt-6 flex justify-end">
+                                                        <button onclick="App.commitTomorrowStrategy()" 
+                                                            class="px-10 py-4 bg-indigo-600 text-white font-bold tracking-[0.2em] hover:bg-indigo-500 transition-all shadow-xl active:scale-95">
+                                                            戦線を確認し離脱する
+                                                        </button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    ` : (this.selectedDate !== today ? logDetail : `
+                                        <div class="relative group">
+                                            <div class="absolute -inset-1 bg-gradient-to-b from-stone-800 to-transparent opacity-20 rounded-sm blur transition duration-1000 group-hover:opacity-40"></div>
+                                            <div class="relative bg-stone-900 border border-stone-800 p-8 shadow-2xl">
+                                                <div class="flex justify-between items-center mb-6">
+                                                    <h3 class="text-stone-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                                                        <i class="fa-solid fa-pen-fancy text-orange-600"></i> 今日の執筆 (Business Summary)
+                                                    </h3>
+                                                    <span class="text-[10px] font-mono text-stone-600">${today}</span>
+                                                </div>
+                                                <textarea id="night-report-text" 
+                                                    class="w-full h-80 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700" 
+                                                    placeholder="本日の記録と戦果を記せ..."></textarea>
+                                                
+                                                <div class="mt-8 flex justify-end">
+                                                    <button onclick="App.finishDay()" 
+                                                        class="group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-200 bg-stone-100/10 border border-stone-700 hover:bg-orange-600 hover:border-orange-500 hover:text-white active:scale-95 overflow-hidden">
+                                                        <span class="relative tracking-[0.3em]">業務終了</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `)}
+
                                     <p class="text-[10px] text-stone-600 text-right mt-4 italic">この記録は、お前の成長という名の歴史になる。</p>
                                 </div>
                             </div>
@@ -698,7 +810,7 @@
                     </div>
                 `;
             }
-        }
+        };
 
         const AnalysisView = {
             render() {
@@ -972,9 +1084,26 @@
                         timestamp: new Date().toLocaleTimeString()
                     });
 
-                    alert('業務終了。\n\n陣内: 「' + txt + '」');
+                    NightView.isReflecting = true;
+                    NightView.lastAdvice = txt;
+                    this.route();
                 } catch (e) { alert('お疲れ。'); }
                 finally { document.getElementById('loading').classList.add('hidden'); }
+            },
+
+            commitTomorrowStrategy() {
+                const theme = document.getElementById('next-theme').value;
+                const win = document.getElementById('next-win').value;
+
+                if (theme) Store.updateKpi('theme', theme);
+                if (win) Store.updateKpi('winningCondition', win);
+
+                // Reset NightView state
+                NightView.isReflecting = false;
+                NightView.lastAdvice = '';
+
+                alert('明日の戦線を確認した。ゆっくり休め。');
+                location.hash = '#dashboard';
             },
 
             startVoice(id) {
@@ -983,6 +1112,19 @@
                 r.lang = 'ja-JP';
                 r.onresult = e => { const el = document.getElementById(id); el.value = (el.value + ' ' + e.results[0][0].transcript).trim(); };
                 r.start();
+            },
+
+            // Calendar Handlers
+            changeCalendarMonth(delta) {
+                NightView.viewMonth += delta;
+                const d = new Date(NightView.viewYear, NightView.viewMonth);
+                NightView.viewYear = d.getFullYear();
+                NightView.viewMonth = d.getMonth();
+                this.route();
+            },
+            selectLogDate(date) {
+                NightView.selectedDate = date;
+                this.route();
             }
         };
 
