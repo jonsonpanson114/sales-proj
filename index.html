@@ -127,6 +127,11 @@
                     data-view="night">
                     <i class="fa-solid fa-moon w-5 text-center"></i> 夜の報告
                 </a>
+                <a href="#warehouse"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="warehouse">
+                    <i class="fa-solid fa-book-journal-whills w-5 text-center"></i> 知識の倉庫
+                </a>
             </nav>
         </div>
 
@@ -189,7 +194,7 @@
             state: {
                 userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-3-flash-preview', apiVersion: 'v1beta' },
                 dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
-                tasks: [], customers: [], dailyLogs: [], morningMessage: '',
+                tasks: [], customers: [], dailyLogs: [], warehouseLogs: [], morningMessage: '',
             },
             init() {
                 try {
@@ -218,6 +223,7 @@
                             }
                         }
                         if (!parsed.dailyLogs) parsed.dailyLogs = [];
+                        if (!parsed.warehouseLogs) parsed.warehouseLogs = [];
                         this.state = { ...this.state, ...parsed };
                     }
                 } catch (e) {
@@ -248,6 +254,23 @@
                 }
                 log[type] = { ...log[type], ...data };
                 this.update('dailyLogs', logs);
+            },
+            addWarehouseLog(topic, detail) {
+                const logs = [...this.state.warehouseLogs];
+                const newLog = {
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    topic,
+                    detail,
+                    aiComment: null
+                };
+                logs.unshift(newLog); // Newest first
+                this.update('warehouseLogs', logs);
+                return newLog;
+            },
+            updateWarehouseLog(id, aiComment) {
+                const logs = this.state.warehouseLogs.map(l => l.id === id ? { ...l, aiComment } : l);
+                this.update('warehouseLogs', logs);
             },
             updateHeader() {
                 const fmt = n => n ? '¥' + Number(n).toLocaleString() : '---';
@@ -290,6 +313,9 @@
                         throw new Error(msg);
                     }
                     const data = await res.json();
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                        throw new Error("AIが何も返さなかった。機嫌が悪いようだ。");
+                    }
                     return data.candidates[0].content.parts[0].text;
                 } catch (e) {
                     console.error(e);
@@ -315,6 +341,151 @@
         };
 
         // --- Views ---
+
+        const WarehouseView = {
+            mode: 'list', // list | detail
+            selectedId: null,
+
+            render() {
+                const s = Store.state;
+                const logs = s.warehouseLogs || [];
+                const term = (window.warehouseSearch || '').toLowerCase();
+                const filtered = logs.filter(l => l.topic.toLowerCase().includes(term) || l.detail.toLowerCase().includes(term));
+
+                const listHTML = filtered.map(l => {
+                    const dateStr = new Date(l.date).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const isSel = this.selectedId === l.id;
+                    return `
+                        <div onclick="WarehouseView.select(${l.id})" class="p-4 border-b border-stone-200 cursor-pointer transition-colors hover:bg-stone-50 ${isSel ? 'bg-orange-50 border-orange-200' : ''}">
+                            <div class="flex justify-between items-start mb-1">
+                                <div class="font-bold text-stone-700 text-sm truncate pr-2">${l.topic}</div>
+                                <div class="text-[10px] text-stone-400 font-mono whitespace-nowrap">${dateStr}</div>
+                            </div>
+                            <div class="text-xs text-stone-500 line-clamp-2">${l.detail}</div>
+                            ${l.aiComment ? '<div class="mt-2 text-[10px] text-orange-600 font-bold"><i class="fa-solid fa-check"></i> 陣内確認済</div>' : '<div class="mt-2 text-[10px] text-stone-300"><i class="fa-solid fa-spinner"></i> 未確認</div>'}
+                        </div>
+                    `;
+                }).join('');
+
+                const selectedLog = logs.find(l => l.id === this.selectedId);
+
+                return `
+                    <div class="h-full flex overflow-hidden animate-fade-in bg-[#f5f5f4]">
+                        <!-- Left: List -->
+                        <div class="w-1/3 flex flex-col border-r border-stone-200 bg-white">
+                            <div class="p-4 border-b border-stone-200 flex justify-between items-center bg-stone-50">
+                                <h2 class="font-bold text-stone-700 serif"><i class="fa-solid fa-book-journal-whills mr-2 text-orange-600"></i>知識の倉庫</h2>
+                                <button onclick="WarehouseView.create()" class="text-xs bg-stone-900 text-white px-3 py-1.5 font-bold hover:bg-orange-600 transition-colors shadow-sm">
+                                    <i class="fa-solid fa-plus mr-1"></i>記録
+                                </button>
+                            </div>
+                            <div class="p-2 border-b border-stone-100">
+                                <div class="relative">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400 text-xs"></i>
+                                    <input type="text" 
+                                        class="w-full pl-9 pr-3 py-2 bg-stone-100/50 border border-stone-200 text-xs focus:outline-none focus:border-stone-400 transition-colors rounded-sm"
+                                        placeholder="記憶を検索..."
+                                        value="${window.warehouseSearch || ''}"
+                                        oninput="window.warehouseSearch=this.value; App.renderCurrentView()">
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto">
+                                ${listHTML || '<div class="p-8 text-center text-stone-400 text-xs italic">記憶庫は空だ。</div>'}
+                            </div>
+                        </div>
+
+                        <!-- Right: Detail/Input -->
+                        <div class="flex-1 flex flex-col bg-[#f5f5f4] relative">
+                            ${this.mode === 'create' ? `
+                                <div class="p-8 max-w-2xl mx-auto w-full animate-slide-in-right">
+                                    <h3 class="text-sm font-bold text-stone-400 uppercase tracking-widest mb-8 text-center">新しい記憶を刻む</h3>
+                                    
+                                    <div class="bg-white p-8 shadow-sm border border-stone-200 space-y-6 relative">
+                                        <!-- Decorative Tape -->
+                                        <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-6 bg-orange-100/50 backdrop-blur border border-white/50 rotate-[-1deg] shadow-sm"></div>
+
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Topic (○○について)</label>
+                                            <input type="text" id="wh-topic" class="w-full text-xl font-bold p-2 border-b-2 border-stone-200 focus:border-orange-600 focus:outline-none bg-transparent transition-colors" placeholder="テーマを入力せよ">
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Details (詳細)</label>
+                                            <textarea id="wh-detail" class="w-full h-64 p-4 text-sm bg-stone-50 border border-stone-200 focus:border-stone-400 focus:outline-none resize-none leading-relaxed" placeholder="忘れたくないことを書き殴れ。"></textarea>
+                                        </div>
+                                        <div class="flex justify-between items-center pt-4">
+                                            <button onclick="WarehouseView.cancel()" class="text-stone-400 hover:text-stone-600 text-xs font-bold">キャンセル</button>
+                                            <button onclick="App.saveWarehouseLog()" class="bg-stone-900 text-white px-8 py-3 font-bold shadow-lg hover:bg-orange-600 transition-transform active:scale-95">
+                                                記録して陣内に投げる
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : (selectedLog ? `
+                                <div class="flex-1 overflow-y-auto p-12">
+                                    <div class="max-w-3xl mx-auto space-y-8 animate-fade-in">
+                                        <!-- Header -->
+                                        <div class="border-b border-stone-300 pb-4 mb-8">
+                                            <div class="flex justify-between items-end mb-2">
+                                                <h1 class="text-3xl font-bold text-stone-900 serif leading-tight">${selectedLog.topic}</h1>
+                                                <span class="text-xs font-mono text-stone-400 shrink-0 mb-1">${new Date(selectedLog.date).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Content -->
+                                        <div class="bg-white p-8 border border-stone-200 shadow-sm text-stone-800 leading-loose text-base whitespace-pre-wrap font-serif min-h-[200px]">
+                                            ${selectedLog.detail}
+                                        </div>
+
+                                        <!-- AI Comment -->
+                                        <div class="relative mt-12 pt-8">
+                                            <div class="absolute inset-0 bg-stone-200/50 transform -skew-y-1"></div>
+                                            <div class="relative bg-stone-900 text-stone-300 p-8 shadow-xl border-l-4 border-orange-600">
+                                                <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-comment-dots"></i></div>
+                                                <h3 class="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                                    <i class="fa-solid fa-user-secret"></i> 陣内のコメント
+                                                </h3>
+                                                ${selectedLog.aiComment ? `
+                                                    <div class="text-lg font-serif italic leading-relaxed">
+                                                        "${selectedLog.aiComment}"
+                                                    </div>
+                                                ` : `
+                                                    <div class="flex items-center gap-3 text-stone-500 animate-pulse">
+                                                        <i class="fa-solid fa-ellipsis"></i> 陣内が思考中...
+                                                    </div>
+                                                `}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="flex-1 flex flex-col items-center justify-center text-stone-300 opacity-50">
+                                    <i class="fa-solid fa-box-open text-6xl mb-4"></i>
+                                    <p class="text-sm font-serif">知識の倉庫へようこそ。</p>
+                                    <p class="text-xs mt-2">左から記録を選ぶか、新しく書き記せ。</p>
+                                </div>
+                            `)}
+                        </div>
+                    </div>
+                `;
+            },
+
+            create() {
+                this.mode = 'create';
+                this.selectedId = null;
+                App.renderCurrentView();
+            },
+
+            select(id) {
+                this.mode = 'detail';
+                this.selectedId = id;
+                App.renderCurrentView();
+            },
+
+            cancel() {
+                this.mode = 'list';
+                App.renderCurrentView();
+            }
+        };
 
         const DashboardView = {
             render() {
@@ -902,7 +1073,8 @@
                 const baseHash = hash.split('?')[0];
                 const view = {
                     'dashboard': DashboardView, 'morning': MorningView, 'sfa': SfaListView,
-                    'sfa_detail': SfaDetailView, 'night': NightView, 'analysis': AnalysisView
+                    'sfa_detail': SfaDetailView, 'night': NightView, 'analysis': AnalysisView,
+                    'warehouse': WarehouseView
                 }[baseHash];
 
                 document.getElementById('view-container').innerHTML = view ? view.render() : 'Not Found';
@@ -911,6 +1083,35 @@
                     if (el.getAttribute('data-view') === baseHash) el.classList.add('active');
                     else el.classList.remove('active');
                 });
+            },
+
+            // Warehouse Logic
+            async saveWarehouseLog() {
+                const topic = document.getElementById('wh-topic').value;
+                const detail = document.getElementById('wh-detail').value;
+                if (!topic) { alert('テーマが決まってないぞ。'); return; }
+
+                const newLog = Store.addWarehouseLog(topic, detail);
+                WarehouseView.cancel(); // Go back to list
+
+                // AI Analysis
+                const prompt = `
+                    知識・思考のメモ:
+                    テーマ: ${topic}
+                    詳細: ${detail}
+
+                    指示:
+                    このメモに対して、陣内として一言コメントしろ。
+                    - 関連するビジネスの格言や、皮肉めいた洞察、あるいは「なるほどな」という納得感。
+                    - 短く鋭く。
+                `;
+                try {
+                    const comment = await GeminiService.generate(prompt);
+                    if (comment) {
+                        Store.updateWarehouseLog(newLog.id, comment);
+                        if (location.hash.includes('warehouse')) App.route(); // Refresh
+                    }
+                } catch (e) { console.error('AI Comment Failed', e); }
             },
 
             // Morning Logic
