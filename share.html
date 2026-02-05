@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Atelier Share - 特使</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700&family=Noto+Sans+JP:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: #1c1917;
+            color: #a8a29e;
+        }
+
+        .serif {
+            font-family: 'Noto Serif JP', serif;
+        }
+
+        .glass {
+            background: rgba(41, 37, 36, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col p-4">
+    <header class="flex justify-between items-center mb-8 pt-4">
+        <h1 class="text-stone-100 font-bold serif flex items-center gap-2">
+            <i class="fa-solid fa-paper-plane text-orange-600"></i> 営業参謀 <span
+                class="text-orange-600 italic">SHARE</span>
+        </h1>
+        <button onclick="location.href='index.html'" class="text-xs text-stone-500 hover:text-stone-100">戻る</button>
+    </header>
+
+    <main class="flex-1 space-y-6 max-w-lg mx-auto w-full">
+        <div class="glass rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-orange-600/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+
+            <h2 class="text-stone-100 font-bold mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-box-open text-sm"></i> 現在の積荷
+            </h2>
+
+            <div id="status-container" class="space-y-4">
+                <div class="flex justify-between text-xs">
+                    <span>知識のログ</span>
+                    <span id="count-warehouse" class="text-stone-100 font-mono">0</span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span>顧客データ</span>
+                    <span id="count-customers" class="text-stone-100 font-mono">0</span>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span>日報履歴</span>
+                    <span id="count-logs" class="text-stone-100 font-mono">0</span>
+                </div>
+            </div>
+
+            <div class="mt-8 space-y-3">
+                <button onclick="shareData()"
+                    class="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-orange-900/20">
+                    <i class="fa-solid fa-share-nodes"></i> 外の世界へ飛ばす (OS共有)
+                </button>
+                <button onclick="copyToClipboard()"
+                    class="w-full bg-stone-800 hover:bg-stone-700 text-stone-200 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                    <i class="fa-solid fa-copy"></i> クリップボードに詰め込む
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 text-[10px] text-stone-600 text-center uppercase tracking-widest">
+            "We don't need permission to move data."
+        </div>
+    </main>
+
+    <script>
+        const STORAGE_KEY = 'sales_atelier_pro_desktop';
+        let currentState = {};
+
+        function init() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                currentState = JSON.parse(raw);
+                document.getElementById('count-warehouse').textContent = (currentState.warehouseLogs || []).length;
+                document.getElementById('count-customers').textContent = (currentState.customers || []).length;
+                document.getElementById('count-logs').textContent = (currentState.dailyLogs || []).length;
+            } else {
+                document.body.innerHTML = '<div class="h-screen flex items-center justify-center text-stone-500">荷物が見当たらない。メインアプリを開いてくれ。</div>';
+            }
+        }
+
+        async function shareData() {
+            const text = generateSummaryText();
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Sales Atelier Pro ログ',
+                        text: text,
+                        url: location.href.replace('share.html', 'index.html')
+                    });
+                } catch (e) { console.log('Share canceled', e); }
+            } else {
+                alert('OS共有に対応してねえな。クリップボードコピーを使え。');
+            }
+        }
+
+        function copyToClipboard() {
+            const text = generateSummaryText();
+            navigator.clipboard.writeText(text).then(() => {
+                alert('詰め込み完了。好きなところに貼り付けろ。');
+            });
+        }
+
+        function generateSummaryText() {
+            let s = `【Sales Atelier Pro 業務報告】\n`;
+            s += `日時: ${new Date().toLocaleString()}\n\n`;
+
+            if (currentState.warehouseLogs && currentState.warehouseLogs.length > 0) {
+                s += `■ 直近の知見:\n`;
+                currentState.warehouseLogs.slice(-3).reverse().forEach(l => {
+                    s += `・${l.topic}: ${l.detail.substring(0, 50)}...\n`;
+                    if (l.aiComment) s += `  (陣内): ${l.aiComment}\n`;
+                });
+                s += `\n`;
+            }
+
+            if (currentState.customers && currentState.customers.length > 0) {
+                s += `■ 注目顧客:\n`;
+                currentState.customers.slice(-3).forEach(c => {
+                    s += `・${c.name} (${c.phase})\n`;
+                });
+            }
+
+            s += `\n...全データはJSONエクスポートを確認しろ。`;
+            return s;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+
+</html>
