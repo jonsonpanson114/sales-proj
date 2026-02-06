@@ -192,6 +192,42 @@
         const APP_KEY = 'sales_atelier_pro_desktop';
         const AI_MODEL = 'gemini-1.5-flash';
 
+        // --- Drive Logger ---
+        const DriveLogger = {
+            GAS_URL: "https://script.google.com/macros/s/AKfycbzCQPNsL18vEfa5_8UXFr3phUJG-FarqCn3vbslVSzlet_cok1N5s3D4fpfNTWW8-Npww/exec",
+            AUTH_TOKEN: "jonsonpanson",
+            APP_NAME: "SalesAtelierPro",
+
+            sendLog(level, message, details) {
+                fetch(this.GAS_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        auth_token: this.AUTH_TOKEN,
+                        app_name: this.APP_NAME,
+                        level,
+                        message,
+                        details,
+                    }),
+                }).catch(e => console.warn("[DriveLogger] Failed to send log:", e));
+            },
+
+            saveContent(contentType, title, content) {
+                fetch(this.GAS_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        auth_token: this.AUTH_TOKEN,
+                        app_name: this.APP_NAME,
+                        action: "content",
+                        content_type: contentType,
+                        title,
+                        content,
+                    }),
+                }).catch(e => console.warn("[DriveLogger] Failed to save content:", e));
+            }
+        };
+
         // --- Store ---
         const Store = {
             state: {
@@ -1154,6 +1190,13 @@
                     const comment = await GeminiService.generate(prompt);
                     if (comment) {
                         Store.updateWarehouseLog(log.id, comment);
+                        // Save to Google Drive
+                        const dateStr = new Date(log.date).toISOString().split('T')[0];
+                        const warehouseMd = `# 知識の倉庫 - ${log.topic}\n\n` +
+                            `## テーマ\n${log.topic}\n\n` +
+                            `## 詳細\n${log.detail}\n\n` +
+                            `## 陣内より\n${comment}\n`;
+                        DriveLogger.saveContent('warehouse', `${log.topic}_${dateStr}`, warehouseMd);
                     } else {
                         Store.updateWarehouseLog(log.id, "（陣内は無言を貫いている。API設定か残高を確認しろ）");
                     }
@@ -1279,6 +1322,14 @@
                         message: json.message
                     });
 
+                    // Save to Google Drive
+                    const morningMd = `# 朝の作戦 - ${new Date().toISOString().split('T')[0]}\n\n` +
+                        `## テーマ\n${theme}\n\n` +
+                        `## 勝利条件\n${win}\n\n` +
+                        `## タスク\n${newTasks.map(t => `- ${t.text}\n  - ${(t.microSteps || []).join('\n  - ')}`).join('\n')}\n\n` +
+                        `## 陣内より\n${json.message}\n`;
+                    DriveLogger.saveContent('morning', `朝の作戦_${new Date().toISOString().split('T')[0]}`, morningMd);
+
                     MorningView.step = 1; // Reset
                     location.hash = '#dashboard';
                 } catch (e) {
@@ -1347,6 +1398,14 @@
                         aiAdvice: txt,
                         timestamp: new Date().toLocaleTimeString()
                     });
+
+                    // Save to Google Drive
+                    const today = new Date().toISOString().split('T')[0];
+                    const nightMd = `# 夜の報告 - ${today}\n\n` +
+                        `## 今日のテーマ\n${Store.state.dailyKpi.theme || '(未設定)'}\n\n` +
+                        `## 完了リスト\n${report}\n\n` +
+                        `## 陣内より\n${txt}\n`;
+                    DriveLogger.saveContent('night', `夜の報告_${today}`, nightMd);
 
                     NightView.isReflecting = true;
                     NightView.lastAdvice = txt;
