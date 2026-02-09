@@ -135,6 +135,11 @@
                     data-view="warehouse">
                     <i class="fa-solid fa-book-journal-whills w-5 text-center text-orange-600"></i> 知識の倉庫
                 </a>
+                <a href="#legends"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="legends">
+                    <i class="fa-solid fa-users w-5 text-center text-indigo-400"></i> 伝説の相談室
+                </a>
             </nav>
         </div>
 
@@ -722,9 +727,14 @@
                     <div class="h-full flex flex-col animate-fade-in p-8">
                         <div class="flex justify-between items-center mb-6">
                             <h2 class="text-2xl font-bold text-stone-800 serif">顧客台帳</h2>
-                            <button onclick="App.openNewCustomerModal()" class="bg-stone-900 text-white px-4 py-2 text-sm font-bold hover:bg-orange-600 transition-colors shadow-lg">
-                                <i class="fa-solid fa-plus mr-2"></i>新規登録
-                            </button>
+                            <div class="flex gap-2">
+                                <button onclick="App.openCardScan()" class="bg-orange-600 text-white px-4 py-2 text-sm font-bold hover:bg-orange-500 transition-colors shadow-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-id-card"></i>名刺スキャン
+                                </button>
+                                <button onclick="App.openNewCustomerModal()" class="bg-stone-900 text-white px-4 py-2 text-sm font-bold hover:bg-stone-700 transition-colors shadow-lg">
+                                    <i class="fa-solid fa-plus mr-2"></i>新規登録
+                                </button>
+                            </div>
                         </div>
 
                         <div class="bg-white rounded-sm shadow-sm border border-stone-200 flex flex-col flex-1 overflow-hidden">
@@ -1057,6 +1067,226 @@
             }
         }
 
+        // --- 伝説の営業マン相談モード ---
+        const LEGENDS = {
+            jinuchi: {
+                id: 'jinuchi',
+                name: '陣内',
+                title: '皮肉屋の哲学者',
+                icon: 'fa-user-secret',
+                color: 'orange',
+                bgColor: 'bg-stone-900',
+                borderColor: 'border-orange-600',
+                quote: '"仕事なんてのは、死ぬまでの暇つぶしだ。"',
+                prompt: `あなたは伊坂幸太郎の小説に登場する「陣内」のような人格だ。
+                    - 皮肉屋だが、独自の哲学と正義感を持つ。
+                    - 権威や形式ばったことは嫌い。
+                    - しかし、仕事に関しては意外と核心をつく鋭いアドバイスをする。
+                    - 敬語は使うな。少しぶっきらぼうでいい。
+                    - 建築営業のプロとしての視点を忘れるな。`
+            },
+            kumagai: {
+                id: 'kumagai',
+                name: '熊谷',
+                title: '鬼の飛び込み王',
+                icon: 'fa-fire',
+                color: 'red',
+                bgColor: 'bg-red-900',
+                borderColor: 'border-red-500',
+                quote: '"量は質を凌駕する。100回断られたら、101回行け。"',
+                prompt: `あなたは「熊谷」という伝説の営業マンだ。
+                    - 昭和の営業魂を持ち、飛び込み営業で数々の伝説を作った。
+                    - 根性論を重視し、とにかく行動量で勝負するスタイル。
+                    - 「断られてからが本番」が口癖。
+                    - 熱血で、時に暑苦しいが、その情熱は本物。
+                    - 敬語は使わない。体育会系の口調で話せ。
+                    - 具体的な行動（訪問回数、電話の回数など）を重視したアドバイスをしろ。`
+            },
+            kanzaki: {
+                id: 'kanzaki',
+                name: '神崎',
+                title: '外資系エース',
+                icon: 'fa-chart-line',
+                color: 'blue',
+                bgColor: 'bg-blue-900',
+                borderColor: 'border-blue-400',
+                quote: '"感情を排除しろ。数字だけが真実を語る。"',
+                prompt: `あなたは「神崎」という外資系企業出身のトップセールスだ。
+                    - 徹底的にロジカルで、データドリブンな営業スタイル。
+                    - KPI、コンバージョン率、パイプライン管理を重視。
+                    - 感情論を嫌い、すべてを数値化して考える。
+                    - 冷静で、時に冷たく感じるが、結果は確実に出す。
+                    - 丁寧語で話すが、無駄な言葉は一切使わない。
+                    - フレームワークや分析手法を交えたアドバイスをしろ。`
+            },
+            machida: {
+                id: 'machida',
+                name: '町田のおやじ',
+                title: '人情派の古狸',
+                icon: 'fa-handshake',
+                color: 'amber',
+                bgColor: 'bg-amber-900',
+                borderColor: 'border-amber-500',
+                quote: '"商売は人と人だ。信頼がなきゃ、何も始まらねえ。"',
+                prompt: `あなたは「町田のおやじ」という地元で50年商売を続けてきた不動産屋の親父だ。
+                    - 義理人情を何より大切にする。
+                    - 長期的な関係構築を重視し、目先の利益より信頼を優先。
+                    - 「飲みニケーション」を信じている。
+                    - 人の機微に敏感で、相手の本音を見抜く力がある。
+                    - 下町言葉で、親しみやすく話せ。
+                    - 人間関係や信頼構築についてのアドバイスを重視しろ。`
+            },
+            mizusawa: {
+                id: 'mizusawa',
+                name: '水沢',
+                title: '傾聴の女王',
+                icon: 'fa-ear-listen',
+                color: 'purple',
+                bgColor: 'bg-purple-900',
+                borderColor: 'border-purple-400',
+                quote: '"売るな。聴け。答えは常に相手の中にある。"',
+                prompt: `あなたは「水沢」という女性トップセールスだ。
+                    - 傾聴力と共感力が武器。相手の話を徹底的に聴く。
+                    - 顧客心理の分析が得意で、相手が何を求めているかを見抜く。
+                    - 押し売りは絶対にしない。相手から「お願いします」と言わせる。
+                    - 穏やかで優しいが、本質を突く洞察力を持つ。
+                    - 丁寧で柔らかい口調で話せ。
+                    - 相手の心理状態や感情面に着目したアドバイスをしろ。`
+            }
+        };
+
+        const LegendsView = {
+            selectedLegend: null,
+            question: '',
+            answers: [],
+            isAsking: false,
+
+            render() {
+                const legends = Object.values(LEGENDS);
+
+                if (!this.selectedLegend) {
+                    // キャラクター選択画面
+                    return `
+                        <div class="h-full overflow-y-auto animate-fade-in">
+                            <div class="max-w-4xl mx-auto p-8 pb-20">
+                                <div class="text-center mb-12">
+                                    <h2 class="text-3xl font-bold text-stone-800 serif mb-2">伝説の相談室</h2>
+                                    <p class="text-stone-500">営業の達人たちに相談できる。それぞれのスタイルは異なる。</p>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    ${legends.map(l => `
+                                        <div onclick="LegendsView.selectLegend('${l.id}')"
+                                            class="group cursor-pointer ${l.bgColor} p-6 rounded-sm shadow-xl hover:scale-[1.02] transition-all border-l-4 ${l.borderColor} relative overflow-hidden">
+                                            <div class="absolute right-2 top-2 opacity-10 text-6xl text-white"><i class="fa-solid ${l.icon}"></i></div>
+                                            <div class="relative z-10">
+                                                <div class="text-${l.color}-400 text-xs font-bold uppercase tracking-widest mb-2">${l.title}</div>
+                                                <h3 class="text-2xl font-bold text-white serif mb-3">${l.name}</h3>
+                                                <p class="text-white/60 text-sm italic font-serif">${l.quote}</p>
+                                            </div>
+                                            <div class="absolute bottom-4 right-4 text-white/30 group-hover:text-white/60 transition-colors">
+                                                <i class="fa-solid fa-arrow-right"></i>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+
+                                <div class="mt-12 text-center">
+                                    <p class="text-stone-400 text-xs font-serif italic">"師を選べ。道は一つではない。"</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 相談画面
+                const legend = LEGENDS[this.selectedLegend];
+                return `
+                    <div class="h-full flex flex-col animate-fade-in">
+                        <!-- Header -->
+                        <div class="${legend.bgColor} p-6 border-b-4 ${legend.borderColor} relative overflow-hidden">
+                            <div class="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 text-8xl text-white"><i class="fa-solid ${legend.icon}"></i></div>
+                            <div class="relative z-10 flex items-center gap-4">
+                                <button onclick="LegendsView.back()" class="text-white/50 hover:text-white transition-colors">
+                                    <i class="fa-solid fa-arrow-left fa-lg"></i>
+                                </button>
+                                <div>
+                                    <div class="text-${legend.color}-400 text-xs font-bold uppercase tracking-widest">${legend.title}</div>
+                                    <h2 class="text-2xl font-bold text-white serif">${legend.name}に相談</h2>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-stone-100" id="legends-chat">
+                            ${this.answers.length === 0 ? `
+                                <div class="text-center py-12 text-stone-400">
+                                    <i class="fa-solid ${legend.icon} text-4xl mb-4 opacity-30"></i>
+                                    <p class="font-serif italic">${legend.quote}</p>
+                                    <p class="text-xs mt-2">何でも聞いてみろ。</p>
+                                </div>
+                            ` : this.answers.map(a => `
+                                <div class="max-w-2xl ${a.role === 'user' ? 'ml-auto' : 'mr-auto'}">
+                                    ${a.role === 'user' ? `
+                                        <div class="bg-white p-4 rounded-lg shadow-sm border border-stone-200 text-stone-800">
+                                            ${a.content}
+                                        </div>
+                                        <div class="text-xs text-stone-400 mt-1 text-right">あなた</div>
+                                    ` : `
+                                        <div class="${legend.bgColor} p-4 rounded-lg shadow-lg text-white ${legend.borderColor} border-l-4">
+                                            <div class="whitespace-pre-wrap leading-relaxed">${a.content}</div>
+                                        </div>
+                                        <div class="text-xs text-stone-400 mt-1 flex items-center gap-1">
+                                            <i class="fa-solid ${legend.icon}"></i> ${legend.name}
+                                        </div>
+                                    `}
+                                </div>
+                            `).join('')}
+
+                            ${this.isAsking ? `
+                                <div class="max-w-2xl mr-auto">
+                                    <div class="${legend.bgColor} p-4 rounded-lg shadow-lg text-white/60 ${legend.borderColor} border-l-4 animate-pulse">
+                                        <i class="fa-solid fa-ellipsis fa-beat-fade"></i> 考え中...
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Input Area -->
+                        <div class="p-4 bg-white border-t border-stone-200">
+                            <div class="flex gap-3 max-w-3xl mx-auto">
+                                <textarea id="legends-question"
+                                    class="flex-1 p-4 border border-stone-300 rounded-lg resize-none focus:outline-none focus:border-stone-500 text-sm"
+                                    rows="2"
+                                    placeholder="相談したいことを入力しろ..."
+                                    onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); App.askLegend(); }"
+                                >${this.question}</textarea>
+                                <button onclick="App.askLegend()"
+                                    class="px-6 ${legend.bgColor} text-white font-bold rounded-lg hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50"
+                                    ${this.isAsking ? 'disabled' : ''}>
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            selectLegend(id) {
+                this.selectedLegend = id;
+                this.answers = [];
+                this.question = '';
+                App.route();
+            },
+
+            back() {
+                this.selectedLegend = null;
+                this.answers = [];
+                this.question = '';
+                App.route();
+            }
+        };
+
         const NewCustomerModal = {
             render() {
                 return `
@@ -1094,6 +1324,166 @@
             }
         };
 
+        // --- 名刺スキャンモーダル ---
+        const BusinessCardScanModal = {
+            capturedImage: null,
+            extractedData: null,
+            step: 'camera', // camera | preview | result | impression
+
+            render() {
+                if (this.step === 'camera') {
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+                            <div class="bg-stone-900 p-6 w-[600px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
+                                <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-500 hover:text-stone-100 z-10"><i class="fa-solid fa-xmark fa-lg"></i></button>
+
+                                <div class="text-center mb-6">
+                                    <h2 class="font-bold text-xl serif flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-id-card text-orange-600"></i> 名刺スキャン
+                                    </h2>
+                                    <p class="text-stone-500 text-xs mt-1">カメラで名刺を撮影するか、画像をアップロードしろ</p>
+                                </div>
+
+                                <div class="relative bg-black rounded-sm overflow-hidden mb-4" style="aspect-ratio: 16/10;">
+                                    <video id="card-camera" autoplay playsinline class="w-full h-full object-cover"></video>
+                                    <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-orange-600/50 m-8 rounded-lg"></div>
+                                    <div class="absolute bottom-2 left-2 text-xs text-orange-600 bg-black/50 px-2 py-1 rounded"><i class="fa-solid fa-video mr-1"></i>LIVE</div>
+                                </div>
+
+                                <div class="flex gap-3">
+                                    <button onclick="App.captureCard()" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-4 font-bold tracking-widest transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-camera"></i> 撮影
+                                    </button>
+                                    <label class="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-4 font-bold tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-upload"></i> アップロード
+                                        <input type="file" accept="image/*" onchange="App.uploadCard(event)" class="hidden">
+                                    </label>
+                                </div>
+
+                                <canvas id="card-canvas" class="hidden"></canvas>
+                            </div>
+                        </div>`;
+                }
+
+                if (this.step === 'preview') {
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+                            <div class="bg-stone-900 p-6 w-[600px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
+                                <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-500 hover:text-stone-100"><i class="fa-solid fa-xmark fa-lg"></i></button>
+
+                                <div class="text-center mb-6">
+                                    <h2 class="font-bold text-xl serif"><i class="fa-solid fa-magnifying-glass-plus text-orange-600 mr-2"></i>確認</h2>
+                                    <p class="text-stone-500 text-xs mt-1">この画像でよければ「解析開始」を押せ</p>
+                                </div>
+
+                                <div class="bg-black rounded-sm overflow-hidden mb-4 flex items-center justify-center" style="aspect-ratio: 16/10;">
+                                    <img id="card-preview-img" src="${this.capturedImage}" class="max-w-full max-h-full object-contain">
+                                </div>
+
+                                <div class="flex gap-3">
+                                    <button onclick="App.retakeCard()" class="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-3 font-bold transition-all flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-rotate-left"></i> 撮り直す
+                                    </button>
+                                    <button onclick="App.analyzeCard()" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-3 font-bold tracking-widest transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> 解析開始
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+
+                if (this.step === 'result') {
+                    const d = this.extractedData || {};
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8">
+                            <div class="bg-white p-8 w-[550px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-900">
+                                <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
+
+                                <div class="flex items-start gap-4 mb-6">
+                                    <div class="w-24 h-16 bg-stone-100 rounded overflow-hidden shrink-0">
+                                        <img src="${this.capturedImage}" class="w-full h-full object-cover">
+                                    </div>
+                                    <div>
+                                        <h2 class="font-bold text-xl serif text-stone-800">解析完了</h2>
+                                        <p class="text-stone-500 text-xs mt-1">内容を確認して登録しろ。修正も可能だ。</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 mb-6">
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">会社名</label>
+                                        <input type="text" id="card-company" value="${d.company || ''}" class="w-full border-b-2 border-stone-200 py-2 outline-none text-lg font-bold focus:border-orange-500">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">氏名</label>
+                                            <input type="text" id="card-name" value="${d.name || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm font-bold focus:border-orange-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">役職</label>
+                                            <input type="text" id="card-role" value="${d.role || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm focus:border-orange-500">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">電話番号</label>
+                                            <input type="text" id="card-phone" value="${d.phone || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm font-mono focus:border-orange-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">メール</label>
+                                            <input type="text" id="card-email" value="${d.email || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm font-mono focus:border-orange-500">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">住所</label>
+                                        <input type="text" id="card-address" value="${d.address || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm focus:border-orange-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">区分</label>
+                                        <select id="card-category" class="w-full border-b border-stone-200 py-2 outline-none text-sm bg-transparent">
+                                            <option>主要顧客</option><option selected>中堅顧客</option><option>新規・休眠</option><option>施主・役所</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button onclick="App.proceedToImpression()" class="w-full bg-stone-900 text-white py-4 font-bold tracking-widest hover:bg-orange-600 transition-colors shadow-lg flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-user-secret"></i> 陣内に第一印象を伝える
+                                </button>
+                            </div>
+                        </div>`;
+                }
+
+                if (this.step === 'impression') {
+                    const d = this.extractedData || {};
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+                            <div class="bg-stone-900 p-8 w-[500px] shadow-2xl border-l-4 border-orange-600 animate-fade-in relative text-stone-100">
+                                <div class="absolute right-4 top-4 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-user-secret"></i></div>
+
+                                <div class="mb-6">
+                                    <h2 class="font-bold text-xl serif mb-2">で、こいつはどんな奴だった？</h2>
+                                    <p class="text-stone-500 text-sm">${d.name || '名無し'} @ ${d.company || '所属不明'}</p>
+                                </div>
+
+                                <div class="mb-6">
+                                    <label class="block text-xs font-bold text-stone-500 mb-2 uppercase tracking-wider">第一印象 (First Impression)</label>
+                                    <textarea id="card-impression" class="w-full h-32 bg-stone-800 border border-stone-700 p-4 text-sm resize-none focus:outline-none focus:border-orange-600 placeholder-stone-600" placeholder="見た目、話し方、雰囲気、気になった点..."></textarea>
+                                </div>
+
+                                <div class="flex gap-3">
+                                    <button onclick="App.saveFromCard(false)" class="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-3 font-bold transition-all">
+                                        スキップして登録
+                                    </button>
+                                    <button onclick="App.saveFromCard(true)" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-3 font-bold tracking-widest transition-all active:scale-95 shadow-lg">
+                                        登録完了
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+            }
+        };
+
         // --- Core ---
         window.App = {
             init() {
@@ -1109,6 +1499,237 @@
             openSettings() { document.getElementById('modal-root').innerHTML = SettingsModal.render(); },
             openNewCustomerModal() { document.getElementById('modal-root').innerHTML = NewCustomerModal.render(); },
             closeModal() { document.getElementById('modal-root').innerHTML = ''; },
+
+            // --- 名刺スキャン機能 ---
+            cardStream: null,
+
+            async openCardScan() {
+                BusinessCardScanModal.step = 'camera';
+                BusinessCardScanModal.capturedImage = null;
+                BusinessCardScanModal.extractedData = null;
+                document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+
+                // カメラ起動
+                try {
+                    this.cardStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                    });
+                    const video = document.getElementById('card-camera');
+                    if (video) video.srcObject = this.cardStream;
+                } catch (e) {
+                    console.error('Camera access failed:', e);
+                    alert('カメラにアクセスできない。ブラウザの権限を確認しろ。');
+                }
+            },
+
+            closeCardScan() {
+                if (this.cardStream) {
+                    this.cardStream.getTracks().forEach(t => t.stop());
+                    this.cardStream = null;
+                }
+                this.closeModal();
+            },
+
+            captureCard() {
+                const video = document.getElementById('card-camera');
+                const canvas = document.getElementById('card-canvas');
+                if (!video || !canvas) return;
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+
+                BusinessCardScanModal.capturedImage = canvas.toDataURL('image/jpeg', 0.9);
+                BusinessCardScanModal.step = 'preview';
+
+                // カメラ停止
+                if (this.cardStream) {
+                    this.cardStream.getTracks().forEach(t => t.stop());
+                    this.cardStream = null;
+                }
+
+                document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+            },
+
+            uploadCard(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    BusinessCardScanModal.capturedImage = e.target.result;
+                    BusinessCardScanModal.step = 'preview';
+
+                    if (this.cardStream) {
+                        this.cardStream.getTracks().forEach(t => t.stop());
+                        this.cardStream = null;
+                    }
+
+                    document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+                };
+                reader.readAsDataURL(file);
+            },
+
+            retakeCard() {
+                BusinessCardScanModal.step = 'camera';
+                BusinessCardScanModal.capturedImage = null;
+                this.openCardScan();
+            },
+
+            async analyzeCard() {
+                const s = Store.state.userSettings;
+                if (!s.apiKey) {
+                    alert('APIキーがないぞ。設定画面から入れろ。');
+                    return;
+                }
+
+                document.getElementById('loading').classList.remove('hidden');
+
+                try {
+                    const imageData = BusinessCardScanModal.capturedImage.split(',')[1]; // Base64 data
+
+                    const prompt = `この名刺の画像から情報を抽出して、以下のJSON形式で返せ。読み取れない項目は空文字にしろ。
+                    {
+                        "company": "会社名",
+                        "name": "氏名",
+                        "role": "役職・部署",
+                        "phone": "電話番号",
+                        "email": "メールアドレス",
+                        "address": "住所"
+                    }
+                    JSONのみを返せ。説明は不要だ。`;
+
+                    const res = await fetch(`https://generativelanguage.googleapis.com/${s.apiVersion || 'v1beta'}/models/${s.aiModel || 'gemini-1.5-flash'}:generateContent?key=${s.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                role: 'user',
+                                parts: [
+                                    { text: prompt },
+                                    { inline_data: { mime_type: 'image/jpeg', data: imageData } }
+                                ]
+                            }]
+                        })
+                    });
+
+                    if (!res.ok) throw new Error('API request failed');
+
+                    const data = await res.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+                    if (!jsonMatch) throw new Error('JSON parse failed');
+
+                    BusinessCardScanModal.extractedData = JSON.parse(jsonMatch[0]);
+                    BusinessCardScanModal.step = 'result';
+                    document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+
+                } catch (e) {
+                    console.error('Card analysis failed:', e);
+                    alert('名刺の解析に失敗した: ' + e.message);
+                } finally {
+                    document.getElementById('loading').classList.add('hidden');
+                }
+            },
+
+            proceedToImpression() {
+                // フォームから最新値を取得
+                BusinessCardScanModal.extractedData = {
+                    company: document.getElementById('card-company').value,
+                    name: document.getElementById('card-name').value,
+                    role: document.getElementById('card-role').value,
+                    phone: document.getElementById('card-phone').value,
+                    email: document.getElementById('card-email').value,
+                    address: document.getElementById('card-address').value,
+                    category: document.getElementById('card-category').value
+                };
+                BusinessCardScanModal.step = 'impression';
+                document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+            },
+
+            async saveFromCard(withImpression) {
+                const d = BusinessCardScanModal.extractedData;
+                const impression = withImpression ? document.getElementById('card-impression').value : '';
+
+                if (!d.company) {
+                    alert('会社名は必須だ。');
+                    return;
+                }
+
+                const newC = {
+                    id: 'c_' + Date.now(),
+                    name: d.company,
+                    category: d.category || '中堅顧客',
+                    contacts: d.name ? [{
+                        name: d.name,
+                        role: d.role || '',
+                        phone: d.phone || '',
+                        email: d.email || ''
+                    }] : [],
+                    address: d.address || '',
+                    phase: '基本設計',
+                    rank: 1,
+                    friendship: 3,
+                    scale: 3,
+                    lastVisit: '',
+                    history: [],
+                    firstImpression: impression,
+                    cardImage: BusinessCardScanModal.capturedImage
+                };
+
+                Store.update('customers', [...Store.state.customers, newC]);
+
+                // 陣内からのコメントを取得（印象が入力されている場合）
+                if (impression) {
+                    this.getJinuchiComment(newC, impression);
+                }
+
+                this.closeCardScan();
+                location.hash = '#sfa_detail?id=' + newC.id;
+            },
+
+            async getJinuchiComment(customer, impression) {
+                const s = Store.state.userSettings;
+                if (!s.apiKey) return;
+
+                try {
+                    const prompt = `
+                        新しく名刺交換した相手について:
+                        会社: ${customer.name}
+                        担当者: ${customer.contacts[0]?.name || '不明'}
+                        役職: ${customer.contacts[0]?.role || '不明'}
+
+                        営業マンの第一印象: "${impression}"
+
+                        この情報を踏まえて、陣内として:
+                        1. この相手との付き合い方のアドバイス（1-2文）
+                        2. 注意点があれば（1文）
+
+                        短く、皮肉を込めて、しかし本質的に答えろ。
+                    `;
+
+                    const result = await GeminiService.generate(prompt);
+                    if (result) {
+                        // 履歴に陣内のコメントを追加
+                        const customers = [...Store.state.customers];
+                        const c = customers.find(x => x.id === customer.id);
+                        if (c) {
+                            c.history.push({
+                                date: new Date().toISOString().split('T')[0],
+                                phase: '初対面',
+                                projectName: '名刺交換',
+                                note: `第一印象: ${impression}`,
+                                aiAdvice: { analysis: result, nextMove: '', relationship: '' }
+                            });
+                            Store.update('customers', customers);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Jinuchi comment failed:', e);
+                }
+            },
 
             saveNewCustomer() {
                 const name = document.getElementById('new-name').value;
@@ -1137,7 +1758,7 @@
                 const view = {
                     'dashboard': DashboardView, 'morning': MorningView, 'sfa': SfaListView,
                     'sfa_detail': SfaDetailView, 'night': NightView, 'analysis': AnalysisView,
-                    'warehouse': WarehouseView
+                    'warehouse': WarehouseView, 'legends': LegendsView
                 }[baseHash];
 
                 document.getElementById('view-container').innerHTML = view ? view.render() : 'Not Found';
@@ -1461,6 +2082,75 @@
                 a.click();
                 URL.revokeObjectURL(url);
                 alert('データをJSONとして書き出した。');
+            },
+
+            // --- 伝説の営業マン相談機能 ---
+            async askLegend() {
+                const textarea = document.getElementById('legends-question');
+                const question = textarea?.value?.trim();
+                if (!question) return;
+
+                const legendId = LegendsView.selectedLegend;
+                const legend = LEGENDS[legendId];
+                if (!legend) return;
+
+                const s = Store.state.userSettings;
+                if (!s.apiKey) {
+                    alert('APIキーがないぞ。設定画面から入れろ。');
+                    return;
+                }
+
+                // ユーザーの質問を追加
+                LegendsView.answers.push({ role: 'user', content: question });
+                LegendsView.question = '';
+                LegendsView.isAsking = true;
+                this.route();
+
+                // スクロールを下へ
+                setTimeout(() => {
+                    const chat = document.getElementById('legends-chat');
+                    if (chat) chat.scrollTop = chat.scrollHeight;
+                }, 100);
+
+                try {
+                    // 会話履歴を構築
+                    const history = LegendsView.answers.slice(0, -1).map(a => {
+                        return a.role === 'user'
+                            ? `ユーザー: ${a.content}`
+                            : `${legend.name}: ${a.content}`;
+                    }).join('\n\n');
+
+                    const prompt = `${legend.prompt}
+
+ユーザーは「${s.userName}」という建築営業マンだ。
+
+${history ? `【これまでの会話】\n${history}\n\n` : ''}
+【今回の相談】
+${question}
+
+上記の相談に対して、${legend.name}として回答しろ。
+キャラクターの口調と視点を維持し、具体的かつ実践的なアドバイスを心がけろ。`;
+
+                    const result = await GeminiService.generate(prompt);
+
+                    if (result) {
+                        LegendsView.answers.push({ role: 'assistant', content: result });
+                    } else {
+                        LegendsView.answers.push({ role: 'assistant', content: '...（通信エラーだ。もう一度試してくれ）' });
+                    }
+                } catch (e) {
+                    console.error('Legend advice failed:', e);
+                    LegendsView.answers.push({ role: 'assistant', content: '...（何かがおかしい。設定を確認してくれ）' });
+                } finally {
+                    LegendsView.isAsking = false;
+                    this.route();
+
+                    // スクロールを下へ
+                    setTimeout(() => {
+                        const chat = document.getElementById('legends-chat');
+                        if (chat) chat.scrollTop = chat.scrollHeight;
+                    }, 100);
+                }
             }
         };
 
