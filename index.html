@@ -1978,27 +1978,46 @@
 
                 document.getElementById('loading').classList.remove('hidden');
 
-                const prompt = `
-                    ユーザーの今日のテーマ: ${theme}
-                    勝利条件: ${win}
-                    タスク数: ${tasks.length}
-                    
-                    指示:
-                    1. 挨拶: テーマと勝利条件を踏まえて、背中を押す短い一言 (皮肉屋だが熱い)。
-                    2. タスク分析: 各タスクを3つのマイクロステップに分割。
-                    
-                    出力JSON: { "message": "...", "analyzedTasks": [{ "originalText": "(task text matches input)", "steps": ["...", "..."] }] }
-                `;
+                const taskTxt = tasks.map(t => t.text).join('\n');
+                const prompt = `あなたは「陣内」という皮肉屋だが熱い営業参謀です。
+
+ユーザーの今日のテーマ: ${theme}
+勝利条件: ${win}
+
+タスクリスト:
+${taskTxt}
+
+指示:
+1. テーマと勝利条件を踏まえて、背中を押す短い一言を「message」に書け（皮肉屋だが熱い口調）
+2. 各タスクを3つの具体的なマイクロステップに分割し、「analyzedTasks」配列に格納せよ
+
+**重要: 以下のJSON形式で出力すること。他のテキストは一切含めるな。**
+
+{
+  "message": "短い一言メッセージ",
+  "analyzedTasks": [
+    {
+      "originalText": "タスク1のテキスト",
+      "steps": ["ステップ1", "ステップ2", "ステップ3"]
+    }
+  ]
+}`;
 
                 try {
-                    // Send task texts to match
-                    const taskTxt = tasks.map(t => t.text).join('\n');
-                    const txt = await GeminiService.generate(prompt + "\nタスクリスト:\n" + taskTxt);
+                    const txt = await GeminiService.generate(prompt);
 
                     if (!txt) return; // Error handled in service (alert shown)
 
-                    const match = txt.match(/\{.*\}/s);
-                    if (!match) throw new Error('AI output format error');
+                    // Try to extract JSON more robustly
+                    let jsonText = txt.trim();
+                    // Remove markdown code blocks if present
+                    jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+                    // Find JSON object
+                    const match = jsonText.match(/\{[\s\S]*\}/);
+                    if (!match) {
+                        console.error('AI response:', txt);
+                        throw new Error('JSON not found in response');
+                    }
 
                     const json = JSON.parse(match[0]);
 
