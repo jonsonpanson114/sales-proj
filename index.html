@@ -236,7 +236,7 @@
         // --- Store ---
         const Store = {
             state: {
-                userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-3-flash-preview', apiVersion: 'v1beta' },
+                userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-1.5-flash', apiVersion: 'v1beta' },
                 dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
                 tasks: [], customers: [], dailyLogs: [], warehouseLogs: [], morningMessage: '',
             },
@@ -257,10 +257,10 @@
                                 return c;
                             });
                         }
-                        // Ensure aiModel exists in settings and fix naming errors
+                        // Fix invalid model names if present
                         if (parsed.userSettings) {
-                            if (!parsed.userSettings.aiModel || parsed.userSettings.aiModel.includes('1.5-flash')) {
-                                parsed.userSettings.aiModel = 'gemini-3-flash-preview';
+                            if (parsed.userSettings.aiModel === 'gemini-3-flash-preview') {
+                                parsed.userSettings.aiModel = 'gemini-1.5-flash';
                             }
                             if (!parsed.userSettings.apiVersion || parsed.userSettings.apiVersion === 'v1') {
                                 parsed.userSettings.apiVersion = 'v1beta';
@@ -704,24 +704,49 @@
                 const list = s.customers.filter(c => c.name.toLowerCase().includes(term));
 
                 const catColors = { '主要顧客': 'bg-indigo-100 text-indigo-800', '中堅顧客': 'bg-stone-200 text-stone-700', '新規・休眠': 'bg-orange-100 text-orange-800', '施主・役所': 'bg-teal-100 text-teal-800' };
+                const catIcons = { '主要顧客': 'fa-star', '中堅顧客': 'fa-building', '新規・休眠': 'fa-seedling', '施主・役所': 'fa-landmark' };
+                const catOrder = ['主要顧客', '中堅顧客', '新規・休眠', '施主・役所'];
 
-                const rows = list.map(c => {
-                    const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
+                // Group customers by category
+                const grouped = {};
+                catOrder.forEach(cat => grouped[cat] = []);
+                list.forEach(c => {
+                    const cat = c.category || '中堅顧客';
+                    if (!grouped[cat]) grouped[cat] = [];
+                    grouped[cat].push(c);
+                });
+
+                const sections = catOrder.map(cat => {
+                    const items = grouped[cat];
+                    if (items.length === 0) return '';
+                    const rows = items.map(c => {
+                        const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
+                        return `
+                        <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
+                            <td class="py-4 px-4 font-bold text-stone-800 text-base">${c.name}</td>
+                            <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
+                            <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
+                            <td class="py-4 px-4 text-right">
+                                <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
+                            </td>
+                        </tr>`;
+                    }).join('');
                     return `
-                    <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
-                        <td class="py-4 px-4 font-bold text-stone-800 text-base">
-                            <div class="flex items-center gap-2">
-                                <span>${c.name}</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full ${catColors[c.category] || 'bg-stone-100'}">${c.category || '未分類'}</span>
-                            </div>
-                        </td>
-                        <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
-                        <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
-                        <td class="py-4 px-4 text-right">
-                            <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
-                        </td>
-                    </tr>`;
+                    <div class="mb-6">
+                        <div class="flex items-center gap-3 px-4 py-3 bg-stone-50 border-b border-stone-200 sticky top-0 z-10">
+                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm ${catColors[cat]}">
+                                <i class="fa-solid ${catIcons[cat]}"></i>
+                            </span>
+                            <h3 class="font-bold text-stone-700 text-sm">${cat}</h3>
+                            <span class="text-xs text-stone-400">${items.length}社</span>
+                        </div>
+                        <table class="w-full text-left border-collapse">
+                            <tbody class="divide-y divide-stone-100">${rows}</tbody>
+                        </table>
+                    </div>`;
                 }).join('');
+
+                const hasData = list.length > 0;
 
                 return `
                     <div class="h-full flex flex-col animate-fade-in p-8">
@@ -742,23 +767,13 @@
                                 <div class="relative max-w-sm">
                                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400"></i>
                                     <input type="text" class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 focus:outline-none focus:border-orange-500 text-sm transition-colors"
-                                        placeholder="会社名・担当者名で検索..." 
+                                        placeholder="会社名・担当者名で検索..."
                                         value="${window.searchTerm || ''}"
                                         oninput="window.searchTerm=this.value; App.route()">
                                 </div>
                             </div>
                             <div class="overflow-y-auto flex-1">
-                                <table class="w-full text-left border-collapse">
-                                    <thead class="bg-stone-100 text-stone-500 text-xs uppercase sticky top-0 shadow-sm z-10">
-                                        <tr>
-                                            <th class="py-3 px-4 font-bold w-1/2">会社名・区分</th>
-                                            <th class="py-3 px-4 font-bold w-1/4">担当者</th>
-                                            <th class="py-3 px-4 font-bold">最終訪問</th>
-                                            <th class="py-3 px-4"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-stone-100">${rows || '<tr><td colspan="4" class="p-8 text-center text-stone-400">データなし</td></tr>'}</tbody>
-                                </table>
+                                ${hasData ? sections : '<div class="p-8 text-center text-stone-400">データなし</div>'}
                             </div>
                         </div>
                     </div>
@@ -864,6 +879,9 @@
             selectedDate: new Date().toISOString().split('T')[0],
             isReflecting: false,
             lastAdvice: '',
+            lastEmotionComment: '',
+            emotionPositive: [],
+            emotionNegative: [],
 
             render() {
                 const s = Store.state;
@@ -1001,6 +1019,16 @@
                                                 <div class="text-[10px] text-stone-500 text-right mt-6">--- 営業参謀 陣内 19:xx</div>
                                             </div>
 
+                                            ${this.lastEmotionComment ? `
+                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-pink-900/30 p-10 shadow-2xl relative overflow-hidden">
+                                                <div class="absolute right-6 top-6 opacity-5 text-7xl text-pink-500"><i class="fa-solid fa-heart"></i></div>
+                                                <h3 class="text-[10px] font-bold text-pink-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                                                    <i class="fa-solid fa-heart"></i> 今日の感情へのコメント (Emotional Feedback)
+                                                </h3>
+                                                <div class="text-stone-200 leading-relaxed whitespace-pre-wrap">${this.lastEmotionComment}</div>
+                                            </div>
+                                            ` : ''}
+
                                             <div class="bg-stone-900/40 p-10 border border-stone-800">
                                                 <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-2">
                                                     <i class="fa-solid fa-compass text-indigo-400"></i> 明日の展望 (Next Strategy)
@@ -1033,12 +1061,51 @@
                                                     </h3>
                                                     <span class="text-[10px] font-mono text-stone-600">${today}</span>
                                                 </div>
-                                                <textarea id="night-report-text" 
-                                                    class="w-full h-80 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700" 
+                                                <textarea id="night-report-text"
+                                                    class="w-full h-56 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700"
                                                     placeholder="本日の記録と戦果を記せ..."></textarea>
-                                                
+
+                                                <!-- 今日の感情セクション -->
+                                                <div class="mt-8 border-t border-stone-800 pt-8">
+                                                    <h3 class="text-stone-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 mb-4">
+                                                        <i class="fa-solid fa-heart text-pink-500"></i> 今日の感情 (Emotional Log)
+                                                    </h3>
+                                                    <div class="space-y-4">
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-emerald-500 block mb-2 flex items-center gap-1">
+                                                                <i class="fa-solid fa-face-smile"></i> 嬉しかったこと・良かったこと
+                                                            </label>
+                                                            <div id="emotion-positive-list" class="space-y-2 mb-2"></div>
+                                                            <div class="flex gap-2">
+                                                                <input type="text" id="emotion-positive-input"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-emerald-500 placeholder-stone-600"
+                                                                    placeholder="例: A社から見積依頼をもらえた"
+                                                                    onkeydown="if(event.key==='Enter')App.addEmotionItem('positive')">
+                                                                <button onclick="App.addEmotionItem('positive')" class="px-3 py-2 bg-emerald-600/20 border border-emerald-700 text-emerald-400 text-sm hover:bg-emerald-600/40 transition-colors">
+                                                                    <i class="fa-solid fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-amber-500 block mb-2 flex items-center gap-1">
+                                                                <i class="fa-solid fa-cloud"></i> モヤッとしたこと・気になったこと
+                                                            </label>
+                                                            <div id="emotion-negative-list" class="space-y-2 mb-2"></div>
+                                                            <div class="flex gap-2">
+                                                                <input type="text" id="emotion-negative-input"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-stone-600"
+                                                                    placeholder="例: B社の担当者の反応が薄かった"
+                                                                    onkeydown="if(event.key==='Enter')App.addEmotionItem('negative')">
+                                                                <button onclick="App.addEmotionItem('negative')" class="px-3 py-2 bg-amber-600/20 border border-amber-700 text-amber-400 text-sm hover:bg-amber-600/40 transition-colors">
+                                                                    <i class="fa-solid fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
                                                 <div class="mt-8 flex justify-end">
-                                                    <button onclick="App.finishDay()" 
+                                                    <button onclick="App.finishDay()"
                                                         class="group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-200 bg-stone-100/10 border border-stone-700 hover:bg-orange-600 hover:border-orange-500 hover:text-white active:scale-95 overflow-hidden">
                                                         <span class="relative tracking-[0.3em]">業務終了</span>
                                                     </button>
@@ -1061,7 +1128,11 @@
                 const dots = Store.state.customers.map(c => {
                     const x = ((c.friendship || 3) - 1) / 4 * 100;
                     const y = 100 - ((c.scale || 3) - 1) / 4 * 100;
-                    return `<div onclick="location.hash='#sfa_detail?id=${c.id}'" class="absolute w-4 h-4 rounded-full bg-stone-800 border-2 border-white shadow-lg cursor-pointer hover:bg-orange-600 hover:scale-125 transition-all group" style="left:${x}%; top:${y}%; margin-left:-8px; margin-top:-8px;"><span class="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10">${c.name}</span></div>`;
+                    const lastH = (c.history || []).slice().reverse().find(h => h.projectName || h.nextDate);
+                    const projName = lastH?.projectName || '';
+                    const nextDate = lastH?.nextDate || '';
+                    const tooltipLines = [c.name, projName ? `📋 ${projName}` : '', nextDate ? `📅 ${nextDate}` : ''].filter(Boolean);
+                    return `<div onclick="location.hash='#sfa_detail?id=${c.id}'" class="absolute w-4 h-4 rounded-full bg-stone-800 border-2 border-white shadow-lg cursor-pointer hover:bg-orange-600 hover:scale-125 transition-all group" style="left:${x}%; top:${y}%; margin-left:-8px; margin-top:-8px;"><div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 rounded shadow-lg pointer-events-none"><div class="font-bold">${c.name}</div>${projName ? `<div class="text-stone-400 mt-0.5">📋 ${projName}</div>` : ''}${nextDate ? `<div class="text-orange-400 mt-0.5">📅 ${nextDate}</div>` : ''}</div></div>`;
                 }).join('');
                 return `<div class="h-full flex flex-col animate-fade-in pb-12 p-8"><h2 class="text-2xl font-bold text-stone-800 serif mb-6">戦略地図</h2><div class="flex-1 bg-white border border-stone-200 shadow-sm relative rounded-sm overflow-hidden m-4" style="background-image: radial-gradient(#d6d3d1 1px, transparent 1px); background-size: 40px 40px;"><div class="absolute left-1/2 top-4 bottom-4 w-px bg-stone-400 border-l border-dashed border-stone-400"></div><div class="absolute top-1/2 left-4 right-4 h-px bg-stone-400 border-t border-dashed border-stone-400"></div><div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（大）</div><div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（小）</div><div class="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（高）</div><div class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（低）</div><div class="absolute inset-8">${dots}</div></div><p class="text-center text-stone-400 text-xs font-serif">"右上の客を狙え。そこが一番美味い。"</p></div>`;
             }
@@ -1936,7 +2007,11 @@
                         const analysis = json.analyzedTasks[i] || {};
                         return { ...t, microSteps: analysis.steps || [] };
                     });
-                    this.saveDailyLog('morning', {
+
+                    // Update UI State
+                    Store.update('morningMessage', json.message);
+
+                    Store.saveDailyLog('morning', {
                         theme,
                         win,
                         tasks: newTasks.map(t => t.text),
@@ -1998,6 +2073,7 @@
                     contactPerson: document.getElementById('act-person').value,
                     smallTalk: document.getElementById('act-smalltalk').value,
                     nextAction: document.getElementById('act-next-action').value,
+                    nextDate: document.getElementById('act-next-date').value,
                     aiAdvice: advice
                 });
                 c.lastVisit = document.getElementById('act-date').value;
@@ -2007,29 +2083,90 @@
                 this.route();
             },
 
+            addEmotionItem(type) {
+                const inputId = type === 'positive' ? 'emotion-positive-input' : 'emotion-negative-input';
+                const listId = type === 'positive' ? 'emotion-positive-list' : 'emotion-negative-list';
+                const input = document.getElementById(inputId);
+                const val = input.value.trim();
+                if (!val) return;
+                const arr = type === 'positive' ? NightView.emotionPositive : NightView.emotionNegative;
+                arr.push(val);
+                input.value = '';
+                const color = type === 'positive' ? 'emerald' : 'amber';
+                const icon = type === 'positive' ? 'fa-face-smile' : 'fa-cloud';
+                const listEl = document.getElementById(listId);
+                const idx = arr.length - 1;
+                const item = document.createElement('div');
+                item.className = `flex items-center gap-2 bg-${color}-900/20 border border-${color}-800/30 px-3 py-2 text-sm text-stone-300`;
+                item.innerHTML = `<i class="fa-solid ${icon} text-${color}-500 text-xs"></i><span class="flex-1">${val}</span><button onclick="App.removeEmotionItem('${type}',${idx})" class="text-stone-600 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark text-xs"></i></button>`;
+                listEl.appendChild(item);
+            },
+
+            removeEmotionItem(type, idx) {
+                const arr = type === 'positive' ? NightView.emotionPositive : NightView.emotionNegative;
+                arr.splice(idx, 1);
+                // Re-render the list
+                const listId = type === 'positive' ? 'emotion-positive-list' : 'emotion-negative-list';
+                const color = type === 'positive' ? 'emerald' : 'amber';
+                const icon = type === 'positive' ? 'fa-face-smile' : 'fa-cloud';
+                const listEl = document.getElementById(listId);
+                listEl.innerHTML = arr.map((v, i) => `<div class="flex items-center gap-2 bg-${color}-900/20 border border-${color}-800/30 px-3 py-2 text-sm text-stone-300"><i class="fa-solid ${icon} text-${color}-500 text-xs"></i><span class="flex-1">${v}</span><button onclick="App.removeEmotionItem('${type}',${i})" class="text-stone-600 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark text-xs"></i></button></div>`).join('');
+            },
+
             async finishDay() {
                 const report = document.getElementById('night-report-text').value;
                 if (!report) { alert('何も書いてないぞ。'); return; }
                 document.getElementById('loading').classList.remove('hidden');
                 try {
+                    const positives = NightView.emotionPositive;
+                    const negatives = NightView.emotionNegative;
+
+                    // 業務報告のAIコメント
                     const txt = await GeminiService.generate(`完了リスト:\n${report}\n今日のテーマ:${Store.state.dailyKpi.theme}\n労え。`);
+
+                    // 感情へのAIコメント
+                    let emotionComment = '';
+                    if (positives.length > 0 || negatives.length > 0) {
+                        const emotionPrompt = `あなたは「人を褒めて成長させることが世界一上手い人」です。
+相手は今日一日頑張った営業マンです。以下の感情の記録を読んで、温かく、かつ本人の成長につながるコメントをしてください。
+
+ルール:
+- 嬉しかったことには、なぜそれが素晴らしいのか、本人の「どんな力」がそれを生んだのかを具体的に指摘して褒めてください
+- モヤッとしたことには、まず共感し、そこから学べること・次に活かせるヒントをポジティブに伝えてください
+- 説教や正論は禁止。相手が「明日もがんばろう」と思える言葉を選んでください
+- 全体で200〜300文字程度にまとめてください
+
+【嬉しかったこと】
+${positives.length > 0 ? positives.map((p, i) => `${i + 1}. ${p}`).join('\n') : '(なし)'}
+
+【モヤッとしたこと】
+${negatives.length > 0 ? negatives.map((n, i) => `${i + 1}. ${n}`).join('\n') : '(なし)'}`;
+                        emotionComment = await GeminiService.generate(emotionPrompt);
+                    }
 
                     Store.saveDailyLog('night', {
                         report,
                         aiAdvice: txt,
+                        emotionPositive: positives,
+                        emotionNegative: negatives,
+                        emotionComment,
                         timestamp: new Date().toLocaleTimeString()
                     });
 
                     // Save to Google Drive
                     const today = new Date().toISOString().split('T')[0];
+                    const emotionMd = (positives.length > 0 || negatives.length > 0) ?
+                        `## 今日の感情\n### 嬉しかったこと\n${positives.map(p => `- ${p}`).join('\n') || '(なし)'}\n\n### モヤッとしたこと\n${negatives.map(n => `- ${n}`).join('\n') || '(なし)'}\n\n### コメント\n${emotionComment}\n\n` : '';
                     const nightMd = `# 夜の報告 - ${today}\n\n` +
                         `## 今日のテーマ\n${Store.state.dailyKpi.theme || '(未設定)'}\n\n` +
                         `## 完了リスト\n${report}\n\n` +
+                        emotionMd +
                         `## 陣内より\n${txt}\n`;
                     DriveLogger.saveContent('night', `夜の報告_${today}`, nightMd);
 
                     NightView.isReflecting = true;
                     NightView.lastAdvice = txt;
+                    NightView.lastEmotionComment = emotionComment;
                     this.route();
                 } catch (e) { alert('お疲れ。'); }
                 finally { document.getElementById('loading').classList.add('hidden'); }
@@ -2045,6 +2182,9 @@
                 // Reset NightView state
                 NightView.isReflecting = false;
                 NightView.lastAdvice = '';
+                NightView.lastEmotionComment = '';
+                NightView.emotionPositive = [];
+                NightView.emotionNegative = [];
 
                 alert('明日の戦線を確認した。ゆっくり休め。');
                 location.hash = '#dashboard';
