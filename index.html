@@ -2114,6 +2114,10 @@
                     if (el.getAttribute('data-view') === baseHash) el.classList.add('active');
                     else el.classList.remove('active');
                 });
+
+                // レベル表示更新
+                if (baseHash === 'dashboard') App.updateLevelDisplay();
+            },
             },
 
             // Warehouse Logic
@@ -2213,6 +2217,35 @@
                 const list = [...Store.state.customers];
                 const c = list.find(x => x.id === id);
                 if (c) { c[k] = v; Store.update('customers', list); }
+            },
+
+            updateLevelDisplay() {
+                const level = Store.state.salesLevel?.level || 1;
+                const exp = Store.state.salesLevel?.exp || 0;
+                const nextExp = 100 - (exp % 100);
+                const levelBar = document.querySelector('#level-bar > div');
+                const nextExpEl = document.querySelector('#next-exp');
+                const streakDisplay = document.querySelector('#streak-display');
+                const badgesDisplay = document.querySelector('#badges-display');
+                const badgesList = document.querySelector('#badges-list');
+
+                if (levelBar) levelBar.style.width = (exp % 100) + '%';
+                if (nextExpEl) nextExpEl.textContent = nextExp + 'exp';
+
+                document.querySelectorAll('#streak-display, #badges-display').forEach(el => el.classList.add('hidden'));
+                if (Store.state.salesLevel?.streak > 0 && streakDisplay) {
+                    streakDisplay.classList.remove('hidden');
+                    const streakText = streakDisplay.querySelector('span:last-child');
+                    if (streakText) streakText.textContent = Store.state.salesLevel.streak + '日連続記録！';
+                }
+                if (Store.state.badges?.length > 0 && badgesDisplay) {
+                    badgesDisplay.classList.remove('hidden');
+                    if (badgesList) {
+                        badgesList.innerHTML = Store.state.badges.map(b => {
+                            return '<div class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded flex items-center gap-1" title="獲得日: ' + new Date(b.earnedAt).toLocaleDateString() + '"><i class="fa-solid fa-medal text-amber-600"></i> ' + b.name + '</div>';
+                        }).join('');
+                    }
+                }
             },
             addContact(cid) {
                 const list = [...Store.state.customers];
