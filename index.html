@@ -1144,7 +1144,7 @@
                     let appointmentTooltip = '';
                     if (hasAppointment) {
                         const customerNames = importantAppointments.map(c => c.name).join(', ');
-                        appointmentTooltip = `title="${importantAppointments.length}件の重要商談: ${customerNames}"`;
+                        appointmentTooltip = `${importantAppointments.length}件の重要商談: ${customerNames}" title="${customerNames}"`;
                     }
 
                     calendarCells += `
