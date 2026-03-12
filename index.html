@@ -1,1 +1,2845 @@
-<!-- TEST -->App.updateLevelDisplay()
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Atelier Pro - Desktop</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Identity Services & Drive API -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        stone: {
+                            50: '#fafaf9', 100: '#f5f5f4', 200: '#e7e5e4', 300: '#d6d3d1',
+                            400: '#a8a29e', 500: '#78716c', 600: '#57534e', 700: '#44403c',
+                            800: '#292524', 900: '#1c1917',
+                        },
+                        indigo: { 900: '#312e81' },
+                        orange: { 600: '#ea580c', 700: '#c2410c' }
+                    },
+                    fontFamily: {
+                        sans: ['"Inter"', '"Noto Sans JP"', 'sans-serif'],
+                        serif: ['"Noto Serif JP"', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #e7e5e4;
+            /* Stone 200 */
+            color: #1c1917;
+            /* Stone 900 */
+            overflow: hidden;
+            /* App feel */
+        }
+
+        .sidebar-item.active {
+            background-color: #292524;
+            color: #ea580c;
+            border-left: 4px solid #ea580c;
+        }
+
+        .input-subtle {
+            background: transparent;
+            border-bottom: 1px solid #a8a29e;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        .input-subtle:focus {
+            border-color: #ea580c;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+
+        .serif {
+            font-family: 'Noto Serif JP', serif;
+        }
+    </style>
+</head>
+
+<body class="flex h-screen w-screen selection:bg-orange-200 selection:text-orange-900 text-sm">
+
+    <!-- SIDEBAR -->
+    <aside class="w-64 bg-stone-900 text-stone-400 flex flex-col justify-between shrink-0 shadow-2xl z-20">
+        <div>
+            <div class="h-16 flex items-center px-6 border-b border-stone-800">
+                <h1 class="text-stone-100 font-bold tracking-widest serif flex items-center gap-2">
+                    <i class="fa-solid fa-briefcase text-orange-600"></i> 営業参謀 <span
+                        class="text-[10px] text-stone-500 mt-1">PRO</span>
+                </h1>
+            </div>
+
+            <nav class="mt-6 flex flex-col gap-1 px-2">
+                <a href="#dashboard"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="dashboard">
+                    <i class="fa-solid fa-gauge-high w-5 text-center"></i> 司令室
+                </a>
+                <a href="#morning"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="morning">
+                    <i class="fa-solid fa-mug-hot w-5 text-center"></i> 朝の作戦
+                </a>
+                <a href="#sfa"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="sfa">
+                    <i class="fa-solid fa-address-book w-5 text-center"></i> 顧客台帳
+                </a>
+                <a href="#analysis"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="analysis">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i> 戦略地図
+                </a>
+                <a href="#night"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="night">
+                    <i class="fa-solid fa-moon w-5 text-center"></i> 夜の報告
+                </a>
+                <a href="#warehouse" onclick="WarehouseView.mode='list'; WarehouseView.selectedId=null; App.route()"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="warehouse">
+                    <i class="fa-solid fa-book-journal-whills w-5 text-center text-orange-600"></i> 知識の倉庫
+                </a>
+                <a href="#legends"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="legends">
+                    <i class="fa-solid fa-users w-5 text-center text-indigo-400"></i> 伝説の相談室
+                </a>
+                <a href="#quotes"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="quotes">
+                    <i class="fa-solid fa-quote-left w-5 text-center text-orange-400"></i> 名言コレクション
+                </a>
+                <a href="#gallery"
+                    class="sidebar-item px-4 py-3 hover:bg-stone-800 hover:text-stone-200 rounded-sm transition-colors flex items-center gap-3"
+                    data-view="gallery">
+                    <i class="fa-solid fa-user-group w-5 text-center text-teal-400"></i> 顔ギャラリー
+                </a>
+            </nav>
+        </div>
+
+        <div class="p-4 border-t border-stone-800">
+            <button id="settings-btn" onclick="App.openSettings()"
+                class="w-full flex items-center gap-3 px-4 py-2 text-stone-500 hover:text-stone-200 transition-colors">
+                <i class="fa-solid fa-gear"></i> <span class="text-xs">システム設定</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#f5f5f4] relative">
+
+        <!-- HEADER (KPI) -->
+        <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 shrink-0 z-10">
+            <div class="text-stone-400 font-serif italic text-xs" id="header-quote">"仕事なんてのは、死ぬまでの暇つぶしだ。"</div>
+
+            <div class="flex gap-8 text-xs">
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">織込金額</span>
+                    <span class="font-bold text-stone-700 font-mono text-base" data-kpi="plan">---</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">図面指定金額</span>
+                    <span class="font-bold text-stone-700 font-mono text-base" data-kpi="spec">---</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">NET金額</span>
+                    <span class="font-bold text-orange-600 font-mono text-base" data-kpi="net">---</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- VIEW CONTAINER -->
+        <div id="view-container" class="flex-1 overflow-y-auto p-0 relative scroll-smooth flex flex-col">
+            <!-- Content Injected Here -->
+        </div>
+
+        <!-- LOADING OVERLAY -->
+        <div id="loading"
+            class="hidden absolute inset-0 bg-stone-900/20 backdrop-blur-[2px] flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded shadow-xl flex items-center gap-4">
+                <i class="fa-solid fa-circle-notch fa-spin text-orange-600 text-2xl"></i>
+                <span class="font-serif text-stone-700">思考中...</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODALS -->
+    <div id="modal-root"></div>
+
+    <script>
+        const APP_KEY = 'sales_atelier_pro_desktop';
+        const AI_MODEL = 'gemini-1.5-flash';
+
+        // --- Drive Logger ---
+        const DriveLogger = {
+            GAS_URL: "https://script.google.com/macros/s/AKfycbzCQPNsL18vEfa5_8UXFr3phUJG-FarqCn3vbslVSzlet_cok1N5s3D4fpfNTWW8-Npww/exec",
+            AUTH_TOKEN: "jonsonpanson",
+            APP_NAME: "SalesAtelierPro",
+
+            sendLog(level, message, details) {
+                fetch(this.GAS_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        auth_token: this.AUTH_TOKEN,
+                        app_name: this.APP_NAME,
+                        level,
+                        message,
+                        details,
+                    }),
+                }).catch(e => console.warn("[DriveLogger] Failed to send log:", e));
+            },
+
+            saveContent(contentType, title, content) {
+                fetch(this.GAS_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        auth_token: this.AUTH_TOKEN,
+                        app_name: this.APP_NAME,
+                        action: "content",
+                        content_type: contentType,
+                        title,
+                        content,
+                    }),
+                }).catch(e => console.warn("[DriveLogger] Failed to save content:", e));
+            }
+        };
+
+        // --- Store ---
+        const Store = {
+            state: {
+                userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-1.5-flash', apiVersion: 'v1beta' },
+                dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
+                tasks: [], customers: [], dailyLogs: [], warehouseLogs: [], morningMessage: '',
+                legendConsultations: [], // 相談履歴保存用
+                salesLevel: { exp: 0, level: 1, streak: 0 }, // 営業マンLv・ストリーク
+                badges: [], // 実績バッジ
+                famousQuotes: [], // 名言コレクション
+            },
+            init() {
+                try {
+                    const s = localStorage.getItem(APP_KEY);
+                    if (s) {
+                        const parsed = JSON.parse(s);
+                        // Data Migration for v2
+                        if (parsed.customers) {
+                            parsed.customers = parsed.customers.map(c => {
+                                // Migrate 'person' to 'contacts'
+                                if (!c.contacts) {
+                                    c.contacts = c.person ? [{ id: Date.now(), name: c.person, role: '担当者' }] : [];
+                                    delete c.person;
+                                }
+                                if (!c.category) c.category = '中堅顧客';
+                                return c;
+                            });
+                        }
+                        // Fix invalid model names if present
+                        if (parsed.userSettings) {
+                            if (parsed.userSettings.aiModel === 'gemini-3-flash-preview') {
+                                parsed.userSettings.aiModel = 'gemini-1.5-flash';
+                            }
+                            if (!parsed.userSettings.apiVersion || parsed.userSettings.apiVersion === 'v1') {
+                                parsed.userSettings.apiVersion = 'v1beta';
+                            }
+                        }
+                        if (!parsed.dailyLogs) parsed.dailyLogs = [];
+                        if (!parsed.warehouseLogs) parsed.warehouseLogs = [];
+                        if (!parsed.legendConsultations) parsed.legendConsultations = [];
+                        if (!parsed.salesLevel) parsed.salesLevel = { exp: 0, level: 1, streak: 0 };
+                        if (!parsed.badges) parsed.badges = [];
+                        if (!parsed.famousQuotes) parsed.famousQuotes = [];
+                        this.state = { ...this.state, ...parsed };
+                    }
+                } catch (e) {
+                    console.error('Data Load Error', e);
+                    alert('保存データが破損していたため、初期化シタ。');
+                }
+                try { this.updateHeader(); } catch (e) { }
+            },
+            save() {
+                localStorage.setItem(APP_KEY, JSON.stringify(this.state));
+                this.updateHeader();
+            },
+            update(k, v) {
+                this.state[k] = v;
+                this.save();
+            },
+            updateKpi(k, v) {
+                this.state.dailyKpi[k] = v;
+                this.save();
+            },
+            saveDailyLog(type, data) {
+                const date = new Date().toISOString().split('T')[0];
+                let logs = [...this.state.dailyLogs];
+                let log = logs.find(l => l.date === date);
+                if (!log) {
+                    log = { date, morning: null, night: null };
+                    logs.push(log);
+                }
+                log[type] = { ...log[type], ...data };
+                this.update('dailyLogs', logs);
+            },
+            addWarehouseLog(topic, detail) {
+                const logs = [...this.state.warehouseLogs];
+                const newLog = {
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    topic,
+                    detail,
+                    aiComment: null
+                };
+                logs.unshift(newLog); // Newest first
+                this.update('warehouseLogs', logs);
+                return newLog;
+            },
+            updateWarehouseLog(id, aiComment) {
+                const logs = this.state.warehouseLogs.map(l => l.id === id ? { ...l, aiComment } : l);
+                this.update('warehouseLogs', logs);
+            },
+            saveLegendConsultation(legendId, legendName, question, answer) {
+                const logs = [...this.state.legendConsultations];
+                const newLog = {
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    legendId,
+                    legendName,
+                    question,
+                    answer,
+                    timestamp: new Date().toLocaleString()
+                };
+                logs.unshift(newLog);
+                this.update('legendConsultations', logs);
+                return newLog;
+            },
+            saveFamousQuote(legendId, legendName, question, answer, quoteText) {
+                const quotes = [...this.state.famousQuotes];
+                // 既存チェック
+                if (quotes.some(q => q.answer === answer)) {
+                    alert('この名言は既に保存済みだ。');
+                    return null;
+                }
+                const newQuote = {
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    legendId,
+                    legendName,
+                    question,
+                    answer,
+                    quoteText,
+                    timestamp: new Date().toLocaleString()
+                };
+                quotes.unshift(newQuote);
+                this.update('famousQuotes', quotes);
+                return newQuote;
+            },
+            deleteFamousQuote(id) {
+                const quotes = this.state.famousQuotes.filter(q => q.id !== id);
+                this.update('famousQuotes', quotes);
+            },
+            // 経験値・Lv関連
+            addExp(amount) {
+                const level = this.state.salesLevel;
+                level.exp = (level.exp || 0) + amount;
+                level.level = Math.floor(level.exp / 100) + 1;
+                this.update('salesLevel', level);
+                // Lv上昇チェック
+                if (level.exp % 100 < amount && level.exp >= 100) {
+                    alert(`Lv上昇！Lv${level.level}になった！`);
+                }
+            },
+            // バッジチェック
+            checkBadges() {
+                const earned = [];
+                const newBadges = [];
+                const current = this.state.badges;
+
+                // バッジ定義
+                const badgeDefinitions = [
+                    { id: 'first_deal', name: '初成約', condition: () => this.state.customers.some(c => (c.history || []).some(h => h.phase === '引渡')) },
+                    { id: '100_visits', name: '100回訪問', condition: () => this.state.customers.reduce((sum, c) => sum + (c.history?.length || 0), 0) >= 100 },
+                    { id: 'streak_7', name: '連続7日', condition: () => this.state.salesLevel.streak >= 7 },
+                    { id: 'card_scan', name: '名刺スキャナー', condition: () => this.state.customers.some(c => c.fromCardScan) },
+                    { id: 'legend_talk', name: '伝説との対話', condition: () => this.state.legendConsultations.length >= 5 },
+                ];
+
+                badgeDefinitions.forEach(badge => {
+                    if (!current.find(cb => cb.id === badge.id) && badge.condition()) {
+                        newBadges.push({ ...badge, earnedAt: new Date().toISOString() });
+                        earned.push(badge);
+                    }
+                });
+
+                if (newBadges.length > 0) {
+                    this.update('badges', [...current, ...newBadges]);
+                    newBadges.forEach(b => alert(`バッジGET！「${b.name}」`));
+                }
+            },
+            updateHeader() {
+                const fmt = n => n ? '¥' + Number(n).toLocaleString() : '---';
+                const s = this.state.dailyKpi;
+                document.querySelector('[data-kpi="plan"]').textContent = fmt(s.plan);
+                document.querySelector('[data-kpi="spec"]').textContent = fmt(s.spec);
+                document.querySelector('[data-kpi="net"]').textContent = fmt(s.net);
+            }
+        };
+
+        // --- Gemini Service ---
+        const GeminiService = {
+            async generate(prompt) {
+                const s = Store.state.userSettings;
+                const key = s.apiKey;
+                const model = s.aiModel || 'gemini-1.5-flash';
+                const ver = s.apiVersion || 'v1';
+
+                if (!key) { alert('APIキーがないぞ。設定画面から入れろ。'); return null; }
+                const sysPrompt = `
+                    あなたは伊坂幸太郎の小説に登場する「陣内」のような人格だ。
+                    - 皮肉屋だが、独自の哲学と正義感を持つ。
+                    - 権威や形式ばったことは嫌いだ。
+                    - しかし、仕事に関しては意外と核心をつく鋭いアドバイスをする。
+                    - 敬語は使うな。少しぶっきらぼうでいい。
+                    - ユーザーは「${s.userName}」だ。
+                    - 建築営業のプロとしての視点を忘れるな。
+                `;
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: sysPrompt + "\n\n" + prompt }] }] })
+                    });
+                    if (!res.ok) {
+                        const err = await res.json();
+                        const msg = err.error?.message || 'API Error';
+                        if (msg.includes('not found')) {
+                            throw new Error(`${msg}\n\n【助言】モデル名またはAPI Verの設定が間違っている可能性がある。標準の gemini-1.5-flash に戻してみろ。`);
+                        }
+                        throw new Error(msg);
+                    }
+                    const data = await res.json();
+                    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                        throw new Error("AIが何も返さなかった。機嫌が悪いようだ。");
+                    }
+                    return data.candidates[0].content.parts[0].text;
+                } catch (e) {
+                    console.error(e);
+                    alert('通信エラー: ' + e.message);
+                    return null;
+                }
+            },
+            async testConnection() {
+                const s = Store.state.userSettings;
+                if (!s.apiKey) return { success: false, message: 'APIキーが空だ。' };
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/${s.apiVersion || 'v1'}/models/${s.aiModel || 'gemini-1.5-flash'}:generateContent?key=${s.apiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Say "OK"' }] }] })
+                    });
+                    const data = await res.json();
+                    if (res.ok) return { success: true, message: '接続成功: ' + data.candidates[0].content.parts[0].text };
+                    return { success: false, message: '接続失敗: ' + (data.error?.message || 'Unknown Error') };
+                } catch (e) {
+                    return { success: false, message: '通信失敗: ' + e.message };
+                }
+            }
+        };
+
+        // --- Views ---
+
+        const WarehouseView = {
+            mode: 'list', // list | detail
+            selectedId: null,
+
+            render() {
+                return `
+                    <div class="h-full flex overflow-hidden animate-fade-in bg-[#f5f5f4]">
+                        <!-- Left: List -->
+                        <div class="w-1/3 flex flex-col border-r border-stone-200 bg-white">
+                            <div class="p-4 border-b border-stone-200 flex justify-between items-center bg-stone-50">
+                                <h2 class="font-bold text-stone-700 serif"><i class="fa-solid fa-book-journal-whills mr-2 text-orange-600"></i>知識の倉庫</h2>
+                                <button onclick="WarehouseView.create()" class="text-xs bg-stone-900 text-white px-3 py-1.5 font-bold hover:bg-orange-600 transition-colors shadow-sm">
+                                    <i class="fa-solid fa-plus mr-1"></i>記録
+                                </button>
+                            </div>
+                            <div class="p-2 border-b border-stone-100">
+                                <div class="relative">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400 text-xs"></i>
+                                    <input type="text" 
+                                        class="w-full pl-9 pr-3 py-2 bg-stone-100/50 border border-stone-200 text-xs focus:outline-none focus:border-stone-400 transition-colors rounded-sm"
+                                        placeholder="記憶を検索..."
+                                        value="${window.warehouseSearch || ''}"
+                                        oninput="window.warehouseSearch=this.value; App.updateWarehouseList()">
+                                </div>
+                            </div>
+                            <div class="flex-1 overflow-y-auto" id="warehouse-list-container">
+                                ${this.renderList()}
+                            </div>
+                        </div>
+
+                        <!-- Right: Detail/Input -->
+                        <div class="flex-1 flex flex-col bg-[#f5f5f4] relative" id="warehouse-detail-container">
+                            ${this.renderDetail()}
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderList() {
+                const s = Store.state;
+                const logs = s.warehouseLogs || [];
+                const term = (window.warehouseSearch || '').toLowerCase();
+                const filtered = logs.filter(l => l.topic.toLowerCase().includes(term) || l.detail.toLowerCase().includes(term));
+
+                return filtered.map(l => {
+                    const dateStr = new Date(l.date).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const isSel = this.selectedId === l.id;
+                    return `
+                        <div onclick="WarehouseView.select(${l.id})" class="p-4 border-b border-stone-200 cursor-pointer transition-colors hover:bg-stone-50 ${isSel ? 'bg-orange-50 border-orange-200' : ''}">
+                            <div class="flex justify-between items-start mb-1">
+                                <div class="font-bold text-stone-700 text-sm truncate pr-2">${l.topic}</div>
+                                <div class="text-[10px] text-stone-400 font-mono whitespace-nowrap">${dateStr}</div>
+                            </div>
+                            <div class="text-xs text-stone-500 line-clamp-2">${l.detail}</div>
+                            ${l.aiComment ? '<div class="mt-2 text-[10px] text-orange-600 font-bold"><i class="fa-solid fa-check"></i> 陣内確認済</div>' : '<div class="mt-2 text-[10px] text-stone-300"><i class="fa-solid fa-spinner"></i> 未確認</div>'}
+                        </div>
+                    `;
+                }).join('') || '<div class="p-8 text-center text-stone-400 text-xs italic">記憶庫は空だ。</div>';
+            },
+
+            renderDetail() {
+                const logs = Store.state.warehouseLogs || [];
+                const selectedLog = logs.find(l => l.id === this.selectedId);
+
+                if (this.mode === 'create') {
+                    return `
+                        <div class="p-8 max-w-2xl mx-auto w-full animate-slide-in-right">
+                            <h3 class="text-sm font-bold text-stone-400 uppercase tracking-widest mb-8 text-center">新しい記憶を刻む</h3>
+                            
+                            <div class="bg-white p-8 shadow-sm border border-stone-200 space-y-6 relative">
+                                <!-- Decorative Tape -->
+                                <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-6 bg-orange-100/50 backdrop-blur border border-white/50 rotate-[-1deg] shadow-sm"></div>
+
+                                <div>
+                                    <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Topic (○○について)</label>
+                                    <input type="text" id="wh-topic" class="w-full text-xl font-bold p-2 border-b-2 border-stone-200 focus:border-orange-600 focus:outline-none bg-transparent transition-colors" placeholder="テーマを入力せよ">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold text-stone-400 uppercase mb-1">Details (詳細)</label>
+                                    <textarea id="wh-detail" class="w-full h-64 p-4 text-sm bg-stone-50 border border-stone-200 focus:border-stone-400 focus:outline-none resize-none leading-relaxed" placeholder="忘れたくないことを書き殴れ。"></textarea>
+                                </div>
+                                <div class="flex justify-between items-center pt-4">
+                                    <button onclick="WarehouseView.cancel()" class="text-stone-400 hover:text-stone-600 text-xs font-bold">キャンセル</button>
+                                    <button onclick="App.saveWarehouseLog()" class="bg-stone-900 text-white px-8 py-3 font-bold shadow-lg hover:bg-orange-600 transition-transform active:scale-95">
+                                        記録して陣内に投げる
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (selectedLog) {
+                    return `
+                        <div class="flex-1 overflow-y-auto p-12">
+                            <div class="max-w-3xl mx-auto space-y-8 animate-fade-in">
+                                <!-- Header -->
+                                <div class="border-b border-stone-300 pb-4 mb-8">
+                                    <div class="flex justify-between items-end mb-2">
+                                        <h1 class="text-3xl font-bold text-stone-900 serif leading-tight">${selectedLog.topic}</h1>
+                                        <span class="text-xs font-mono text-stone-400 shrink-0 mb-1">${new Date(selectedLog.date).toLocaleString()}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Content -->
+                                <div class="bg-white p-8 border border-stone-200 shadow-sm text-stone-800 leading-loose text-base whitespace-pre-wrap font-serif min-h-[200px]">
+                                    ${selectedLog.detail}
+                                </div>
+
+                                <!-- AI Comment -->
+                                <div class="relative mt-12 pt-8">
+                                    <div class="absolute inset-0 bg-stone-200/50 transform -skew-y-1"></div>
+                                    <div class="relative bg-stone-900 text-stone-300 p-8 shadow-xl border-l-4 border-orange-600">
+                                        <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-comment-dots"></i></div>
+                                        <h3 class="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <i class="fa-solid fa-user-secret"></i> 陣内のコメント
+                                        </h3>
+                                        ${selectedLog.aiComment ? `
+                                            <div class="text-lg font-serif italic leading-relaxed mb-4">
+                                                "${selectedLog.aiComment}"
+                                            </div>
+                                            <button onclick="App.retryWarehouseAi(${selectedLog.id})" class="text-[10px] text-stone-500 hover:text-orange-500 uppercase font-bold transition-colors">
+                                                <i class="fa-solid fa-arrows-rotate mr-1"></i> もう一度聞く
+                                            </button>
+                                        ` : `
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-3 text-stone-500 animate-pulse">
+                                                    <i class="fa-solid fa-ellipsis"></i> 陣内が思考中...
+                                                </div>
+                                                <button onclick="App.retryWarehouseAi(${selectedLog.id})" class="text-xs bg-orange-600 text-white px-4 py-2 font-bold shadow-md hover:bg-orange-500 transition-colors">
+                                                    陣内を急かす
+                                                </button>
+                                            </div>
+                                        `}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="flex-1 flex flex-col items-center justify-center text-stone-300 opacity-50">
+                        <i class="fa-solid fa-box-open text-6xl mb-4"></i>
+                        <p class="text-sm font-serif">知識の倉庫へようこそ。</p>
+                        <p class="text-xs mt-2">左から記録を選ぶか、新しく書き記せ。</p>
+                    </div>
+                `;
+            },
+
+            create() {
+                this.mode = 'create';
+                this.selectedId = null;
+                App.route();
+            },
+
+            select(id) {
+                this.mode = 'detail';
+                this.selectedId = id;
+                App.route();
+            },
+
+            cancel() {
+                this.mode = 'list';
+                this.selectedId = null;
+                App.route();
+            }
+        };
+
+        const DashboardView = {
+            render() {
+                const s = Store.state;
+                const tasks = s.tasks.map(t => `
+                    <div class="flex items-start gap-3 p-3 border-b border-stone-100 hover:bg-stone-50 transition-colors group">
+                        <input type="checkbox" ${t.done ? 'checked' : ''} onchange="App.toggleTask('${t.id}')" class="mt-1 cursor-pointer accent-stone-800 shrink-0">
+                        <div class="${t.done ? 'text-stone-400 line-through' : 'text-stone-800'} flex-1">
+                            <div class="font-bold text-sm leading-relaxed">${t.text}</div>
+                            ${t.microSteps ? `<div class="text-xs text-stone-500 mt-2 pl-3 border-l-2 border-stone-200 space-y-1">${t.microSteps.map(m => `<div class="flex items-center gap-2"><i class="fa-solid fa-caret-right text-orange-400"></i> ${m}</div>`).join('')}</div>` : ''}
+                        </div>
+                    </div>`
+                ).join('') || '<div class="p-8 text-center text-stone-400 serif italic">タスクなんて忘れて、昼寝でもするか？</div>';
+
+                return `
+                    <div class="p-8 grid grid-cols-12 gap-6 pb-12 animate-fade-in">
+                        <!-- Left: Message & Strategy -->
+                        <div class="col-span-12 lg:col-span-8 space-y-6">
+                            <!-- 今日の意識ポイント -->
+                            <div class="bg-gradient-to-br from-orange-50 to-pink-50 p-6 shadow-sm border border-orange-200 rounded-sm relative overflow-hidden">
+                                <div class="absolute right-0 top-0 p-4 opacity-10 text-6xl text-orange-400"><i class="fa-solid fa-lightbulb"></i></div>
+                                <h2 class="text-orange-700 text-xs font-bold uppercase tracking-widest mb-2">今日の意識ポイント</h2>
+                                <p class="text-sm font-bold text-orange-800 mb-2">固定Tips</p>
+                                <div class="bg-white/60 p-3 rounded text-orange-900 text-sm mb-3">${DashboardView.getConsciousnessTip()}</div>
+                                <p class="text-xs font-bold text-orange-700 mb-2 mt-4">AI学習</p>
+                                <div class="bg-orange-100 p-3 rounded text-orange-800 text-sm">${DashboardView.getPersonalTip()}</div>
+                            </div>
+
+                            <div class="bg-stone-50 p-6 shadow-sm border border-stone-200 rounded-sm relative overflow-hidden">
+                                <div class="absolute right-0 top-0 p-4 opacity-10 text-6xl text-stone-900"><i class="fa-solid fa-quote-right"></i></div>
+                                <h2 class="text-stone-400 text-xs font-bold uppercase tracking-widest mb-2">陣内の檄</h2>
+                                <p class="text-xl font-serif text-stone-800 leading-relaxed">"${s.morningMessage || 'おう、生きてるか？今日も適当に、かつ真剣にやれ。'}"</p>
+                            </div>
+                            
+                            <!-- Strategy Card -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-indigo-900 text-indigo-100 p-4 shadow-md border-l-4 border-indigo-400">
+                                    <h3 class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">今日のテーマ</h3>
+                                    <div class="text-lg font-bold font-serif">${s.dailyKpi.theme || '未設定'}</div>
+                                </div>
+                                <div class="bg-stone-800 text-stone-100 p-4 shadow-md border-l-4 border-orange-600">
+                                    <h3 class="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">勝利条件</h3>
+                                    <div class="text-lg font-bold font-serif">${s.dailyKpi.winningCondition || '未設定'}</div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white shadow-sm border border-stone-200 rounded-sm min-h-[400px]">
+                                <div class="flex justify-between items-center px-6 py-4 border-b border-stone-100 bg-stone-50/50">
+                                    <h3 class="font-bold text-stone-700"><i class="fa-solid fa-list-check mr-2 text-orange-600"></i>今日のミッション</h3>
+                                    <a href="#morning" class="text-xs text-stone-400 hover:text-orange-600 underline">作戦変更</a>
+                                </div>
+                                <div>${tasks}</div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Quick Status -->
+                        <div class="col-span-12 lg:col-span-4 space-y-6">
+                            <div class="bg-white p-6 shadow-sm border-t-4 border-stone-800">
+                                <h3 class="font-bold text-stone-500 text-xs uppercase mb-4">進捗状況</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm">消化率</span>
+                                        <span class="font-mono font-bold text-xl">${Math.round((s.tasks.filter(t => t.done).length / (s.tasks.length || 1)) * 100)}%</span>
+                                    </div>
+                                    <div class="w-full bg-stone-100 h-2 rounded-full overflow-hidden">
+                                        <div class="bg-orange-600 h-full" style="width: ${(s.tasks.filter(t => t.done).length / (s.tasks.length || 1)) * 100}%"></div>
+                                    </div>
+                                    <div class="pt-4 border-t border-stone-100 flex justify-between text-xs text-stone-400">
+                                        <span>登録顧客数</span>
+                                        <span>${s.customers.length}社</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            // 今日の意識ポイント - 固定Tipsローテーション
+            getConsciousnessTip() {
+                const tips = [
+                    '名前を3回呼ぶことで信頼UP',
+                    '笑顔で第一印象を決める',
+                    '相手の話を6割聴く、4割話す',
+                    '共感話題（天気・スポーツ・休日）を一つ準備',
+                    '名刺を受け取ったら翌日にメール送る',
+                    '終わったら「また相談させてくさい」を必ず言う',
+                    '相手の名前をメモに控えて次回に使う',
+                    '提案書はボールペンで手書きもOK',
+                    '資料を事前に配っておく'
+                ];
+                const today = new Date();
+                const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 1)) / (1000 * 60 * 60 * 24));
+                return tips[dayOfYear % tips.length];
+            },
+
+            // 個人用Tips - 過去の失敗から学習
+            getPersonalTip() {
+                const logs = Store.state.legendConsultations || [];
+                if (logs.length === 0) return 'まだ相談履歴がない。まずは相談してみてくれ。';
+                const recentLogs = logs.slice(-3);
+                const nightLogs = Store.state.dailyLogs || [];
+                const recentEmotions = nightLogs.slice(-7).filter(l => l.night && (l.night.emotionPositive?.length || l.night.emotionNegative?.length));
+                if (recentEmotions.length === 0) return '最近の活動が多いな。まずは今日の感情を記録してみてくれ。';
+                const patterns = {
+                    '相手の反応が薄い': 'もやかく話題を準備しているか？相手の関心を探してくれ。',
+                    '資料を持っていかない': '次回は必ず資料を持参。手渡しではなく、見るものを作れ。',
+                    'クロージングが遅い': '「いつか連絡しろ」ではなく「明日もまた連絡させます」を言う。',
+                    '価格の話ば': '相手が何を求めているか？利益よりも価値を説けろ。',
+                    'プライドが読めない': '相手の組織や状況をもっと理解しよう。'
+                };
+                const date = new Date();
+                const index = Math.floor(date / (1000 * 60 * 60 * 24)) % Object.keys(patterns).length;
+                return `「${Object.keys(patterns)[index]}」：${patterns[Object.keys(patterns)[index]]}`;
+            }
+        };
+
+        const MorningView = {
+            step: 1, // 1: Numbers/Tasks, 2: Strategy
+            render() {
+                const k = Store.state.dailyKpi;
+
+                if (this.step === 1) {
+                    return `
+                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                            <div class="text-center">
+                                <h2 class="text-2xl font-bold text-stone-800 serif">朝の作戦会議 (STEP 1/2)</h2>
+                                <p class="text-stone-500 text-sm mt-1">数値とタスクを洗い出せ。</p>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-white p-4 shadow-sm border border-stone-200">
+                                    <label class="text-[10px] uppercase font-bold text-stone-400 block mb-1">織込金額</label>
+                                    <input type="number" id="inp-plan" value="${k.plan || ''}" class="w-full text-right text-lg font-mono input-subtle" placeholder="0">
+                                </div>
+                                <div class="bg-white p-4 shadow-sm border border-stone-200">
+                                    <label class="text-[10px] uppercase font-bold text-stone-400 block mb-1">図面指定金額</label>
+                                    <input type="number" id="inp-spec" value="${k.spec || ''}" class="w-full text-right text-lg font-mono input-subtle" placeholder="0">
+                                </div>
+                                <div class="bg-white p-4 shadow-sm border-b-4 border-orange-600">
+                                    <label class="text-[10px] uppercase font-bold text-stone-600 block mb-1">NET金額</label>
+                                    <input type="number" id="inp-net" value="${k.net || ''}" class="w-full text-right text-lg font-mono input-subtle font-bold text-stone-800" placeholder="0">
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 shadow-sm border border-stone-200">
+                                <h3 class="font-bold text-stone-700 mb-4 text-sm flex items-center"><i class="fa-solid fa-list-ol mr-2"></i>やるべきこと（箇条書き）</h3>
+                                <textarea id="inp-tasks" class="w-full h-40 p-4 bg-stone-50 text-sm border border-stone-200 focus:outline-none focus:border-stone-400 transition-colors" placeholder="・A社へ提案書送付&#13;&#10;・B現場の寸法確認"></textarea>
+                            </div>
+
+                            <div class="flex justify-center">
+                                <button onclick="App.morningNext()" class="bg-stone-900 text-white px-10 py-4 font-bold tracking-widest hover:bg-stone-700 shadow-lg transition-transform active:scale-95">
+                                    次へ (戦略設定)
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                            <div class="text-center">
+                                <h2 class="text-2xl font-bold text-stone-800 serif">朝の作戦会議 (STEP 2/2)</h2>
+                                <p class="text-stone-500 text-sm mt-1">ただこなすな。どう勝つかを決めろ。</p>
+                            </div>
+
+                            <div class="bg-white p-8 shadow-sm border-t-4 border-indigo-900">
+                                <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日のテーマ (Theme)</label>
+                                <input type="text" id="inp-theme" value="${k.theme || ''}" class="w-full text-2xl font-bold text-indigo-900 border-b-2 border-indigo-100 focus:border-indigo-900 outline-none pb-2 placeholder-indigo-100" placeholder="例: スピード決着">
+                                <p class="text-[10px] text-stone-400 mt-2">一日を通じて意識するスタンス。</p>
+                            </div>
+
+                            <div class="bg-white p-8 shadow-sm border-t-4 border-orange-600">
+                                <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日の勝利条件 (Winning Condition)</label>
+                                <input type="text" id="inp-win" value="${k.winningCondition || ''}" class="w-full text-2xl font-bold text-stone-800 border-b-2 border-orange-100 focus:border-orange-600 outline-none pb-2 placeholder-stone-200" placeholder="例: 見積提出3件完了">
+                                <p class="text-[10px] text-stone-400 mt-2">「これを達成したら今日は勝ち」と言える具体的な成果。</p>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-8">
+                                <button onclick="MorningView.step=1; App.route()" class="text-stone-400 hover:text-stone-800 font-bold text-xs">
+                                    <i class="fa-solid fa-arrow-left mr-2"></i>戻る
+                                </button>
+                                <button onclick="App.runMorningRoutine()" class="bg-orange-600 text-white px-12 py-4 font-bold tracking-widest hover:bg-orange-500 shadow-xl transition-transform active:scale-95">
+                                    作戦開始
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        const SfaListView = {
+            activeCategory: '主要顧客',
+            render() {
+                const s = Store.state;
+                const term = (window.searchTerm || '').toLowerCase();
+                const catColors = { '主要顧客': 'bg-indigo-100 text-indigo-800 border-indigo-400', '中堅顧客': 'bg-stone-200 text-stone-700 border-stone-400', '新規・休眠': 'bg-orange-100 text-orange-800 border-orange-400', '施主・役所': 'bg-teal-100 text-teal-800 border-teal-400' };
+                const catActiveColors = { '主要顧客': 'bg-indigo-600 text-white', '中堅顧客': 'bg-stone-700 text-white', '新規・休眠': 'bg-orange-600 text-white', '施主・役所': 'bg-teal-600 text-white' };
+                const catIcons = { '主要顧客': 'fa-star', '中堅顧客': 'fa-building', '新規・休眠': 'fa-seedling', '施主・役所': 'fa-landmark' };
+                const catOrder = ['主要顧客', '中堅顧客', '新規・休眠', '施主・役所'];
+
+                // Count per category (before search filter)
+                const counts = {};
+                catOrder.forEach(cat => counts[cat] = 0);
+                s.customers.forEach(c => { const cat = c.category || '中堅顧客'; counts[cat] = (counts[cat] || 0) + 1; });
+
+                // Filter by active category + search
+                const activeCat = this.activeCategory;
+                const list = s.customers.filter(c => (c.category || '中堅顧客') === activeCat && c.name.toLowerCase().includes(term));
+
+                const rows = list.map(c => {
+                    const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
+                    return `
+                    <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
+                        <td class="py-4 px-4 font-bold text-stone-800 text-base">${c.name}</td>
+                        <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
+                        <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
+                        <td class="py-4 px-4 text-right">
+                            <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+                const tabs = catOrder.map(cat => {
+                    const isActive = cat === activeCat;
+                    return `<button onclick="SfaListView.activeCategory='${cat}'; App.route()"
+                        class="flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all border-b-2 ${isActive ? catActiveColors[cat] + ' border-transparent shadow-sm' : 'bg-white text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-700'}">
+                        <i class="fa-solid ${catIcons[cat]}"></i>
+                        <span>${cat}</span>
+                        <span class="text-[10px] ${isActive ? 'bg-white/20' : 'bg-stone-100'} px-1.5 py-0.5 rounded-full">${counts[cat]}</span>
+                    </button>`;
+                }).join('');
+
+                return `
+                    <div class="h-full flex flex-col animate-fade-in p-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-stone-800 serif">顧客台帳</h2>
+                            <div class="flex gap-2">
+                                <button onclick="App.openCardScan()" class="bg-orange-600 text-white px-4 py-2 text-sm font-bold hover:bg-orange-500 transition-colors shadow-lg flex items-center gap-2">
+                                    <i class="fa-solid fa-id-card"></i>名刺スキャン
+                                </button>
+                                <button onclick="App.openNewCustomerModal()" class="bg-stone-900 text-white px-4 py-2 text-sm font-bold hover:bg-stone-700 transition-colors shadow-lg">
+                                    <i class="fa-solid fa-plus mr-2"></i>新規登録
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-sm shadow-sm border border-stone-200 flex flex-col flex-1 overflow-hidden">
+                            <!-- Category Tabs -->
+                            <div class="flex border-b border-stone-200">
+                                ${tabs}
+                            </div>
+                            <div class="p-4 border-b border-stone-200 bg-stone-50">
+                                <div class="relative max-w-sm">
+                                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400"></i>
+                                    <input type="text" class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 focus:outline-none focus:border-orange-500 text-sm transition-colors"
+                                        placeholder="${activeCat}内を検索..."
+                                        value="${window.searchTerm || ''}"
+                                        oninput="window.searchTerm=this.value; App.route()">
+                                </div>
+                            </div>
+                            <div class="overflow-y-auto flex-1">
+                                <table class="w-full text-left border-collapse">
+                                    <thead class="bg-stone-100 text-stone-500 text-xs uppercase sticky top-0 shadow-sm z-10">
+                                        <tr>
+                                            <th class="py-3 px-4 font-bold w-1/2">会社名</th>
+                                            <th class="py-3 px-4 font-bold w-1/4">担当者</th>
+                                            <th class="py-3 px-4 font-bold">最終訪問</th>
+                                            <th class="py-3 px-4"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-stone-100">${rows || '<tr><td colspan="4" class="p-8 text-center text-stone-400">このカテゴリにはまだ顧客がいません</td></tr>'}</tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        const SfaDetailView = {
+            render() {
+                const id = location.hash.split('?id=')[1];
+                const c = Store.state.customers.find(x => x.id == id);
+                if (!c) return '<div class="p-8">見つからない</div>';
+
+                const phaseColors = { '基本設計': 'bg-sky-100 text-sky-700', '実施設計': 'bg-blue-100 text-blue-700', '積算': 'bg-violet-100 text-violet-700', '着工': 'bg-emerald-100 text-emerald-700', '引渡': 'bg-amber-100 text-amber-700' };
+                const history = (c.history || []).slice().reverse().map(h => `
+                    <div class="mb-6 group">
+                        <div class="bg-white border border-stone-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                            <!-- Header -->
+                            <div class="flex items-center gap-3 px-4 py-3 bg-stone-50 border-b border-stone-200">
+                                <span class="text-xs font-bold font-mono text-stone-500"><i class="fa-regular fa-calendar mr-1"></i>${h.date}</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${phaseColors[h.phase] || 'bg-stone-100 text-stone-600'}">${h.phase}</span>
+                                <span class="text-[10px] text-stone-400 font-bold ml-auto"><i class="fa-solid fa-user-tag mr-1"></i>${h.contactPerson || '相手不明'}</span>
+                            </div>
+                            <!-- Body -->
+                            <div class="p-4 space-y-3">
+                                <div class="text-sm font-bold text-stone-800">${h.projectName}</div>
+                                <div class="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">${h.note}</div>
+                                ${h.smallTalk ? `
+                                <div class="flex items-start gap-2 bg-yellow-50 p-3 border border-yellow-100 rounded-sm">
+                                    <i class="fa-solid fa-mug-hot text-yellow-500 mt-0.5"></i>
+                                    <span class="text-sm text-stone-600 italic">"${h.smallTalk}"</span>
+                                </div>` : ''}
+                                ${h.nextAction || h.nextDate ? `
+                                <div class="flex items-center gap-3 bg-indigo-50 px-3 py-2 border border-indigo-100 rounded-sm text-xs">
+                                    <i class="fa-solid fa-arrow-right text-indigo-400"></i>
+                                    ${h.nextAction ? `<span class="text-indigo-700 font-bold">${h.nextAction}</span>` : ''}
+                                    ${h.nextDate ? `<span class="text-indigo-400 ml-auto font-mono">${h.nextDate}</span>` : ''}
+                                </div>` : ''}
+                            </div>
+                            <!-- AI Advice -->
+                            ${h.aiAdvice ? `
+                            <div class="bg-stone-800 px-4 py-4 border-t-2 border-orange-600">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-[10px] font-bold text-orange-500 uppercase tracking-widest">陣内の助言</span>
+                                    <i class="fa-solid fa-user-secret text-stone-700 text-lg"></i>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3 text-xs text-stone-300 leading-relaxed">
+                                    <div>
+                                        <span class="block text-stone-500 font-bold mb-1 text-[10px]">分析</span>
+                                        <span>${h.aiAdvice.analysis}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-stone-500 font-bold mb-1 text-[10px]">次手</span>
+                                        <span>${h.aiAdvice.nextMove}</span>
+                                    </div>
+                                    <div class="col-span-2 border-t border-stone-700 pt-2">
+                                        <span class="block text-stone-500 font-bold mb-1 text-[10px]">関係性</span>
+                                        <span>${h.aiAdvice.relationship}</span>
+                                    </div>
+                                </div>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                const contactList = (c.contacts || []).map((p, idx) => `
+                    <div class="flex items-center gap-2 mb-2 group/item">
+                        <div class="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-[10px] shrink-0"><i class="fa-solid fa-user"></i></div>
+                        <input type="text" value="${p.name}" onchange="App.updateContact('${c.id}', ${idx}, 'name', this.value)" class="bg-transparent border-b border-stone-300 focus:border-orange-500 focus:outline-none text-sm font-bold text-stone-700 w-24" placeholder="氏名">
+                        <input type="text" value="${p.role || ''}" onchange="App.updateContact('${c.id}', ${idx}, 'role', this.value)" class="bg-transparent border-b border-stone-300 focus:border-stone-500 focus:outline-none text-[10px] text-stone-500 w-16" placeholder="役職">
+                        <button onclick="App.deleteContact('${c.id}', ${idx})" class="text-stone-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity"><i class="fa-solid fa-times"></i></button>
+                    </div>
+                `).join('') + `<button onclick="App.addContact('${c.id}')" class="text-xs text-orange-600 hover:underline flex items-center gap-1 mt-2 ml-1"><i class="fa-solid fa-plus-circle"></i> 追加</button>`;
+
+                const contactOptions = (c.contacts || []).map(p => `<option value="${p.name}">${p.name} (${p.role || '担当'})</option>`).join('');
+
+                // 3-Column Layout
+                return `
+                    <div class="h-full grid grid-cols-12 divide-x divide-stone-200 bg-white">
+                        <!-- COL 1: Info (3/12) -->
+                        <div class="col-span-3 p-6 overflow-y-auto bg-stone-50/50">
+                             <input type="text" value="${c.name}" onchange="App.updateCustomer('${c.id}', 'name', this.value)" class="text-2xl font-bold bg-transparent border-none text-stone-900 focus:outline-none w-full serif mb-4" placeholder="会社名">
+                             <select onchange="App.updateCustomer('${c.id}', 'category', this.value)" class="w-full text-xs font-bold py-2 px-3 rounded bg-white border border-stone-300 focus:outline-none focus:border-orange-500 cursor-pointer mb-6">
+                                ${['主要顧客', '中堅顧客', '新規・休眠', '施主・役所'].map(cat => `<option ${c.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+                             </select>
+
+                             <div class="mb-6">
+                                <label class="text-[10px] font-bold text-stone-400 block mb-2 uppercase tracking-wider">担当者 (CONTACTS)</label>
+                                ${contactList}
+                             </div>
+
+                             <div class="space-y-4 pt-6 border-t border-stone-200">
+                                <div><div class="flex justify-between text-xs font-bold text-stone-500 mb-1">友好度: ${c.friendship || 3}</div><input type="range" min="1" max="5" value="${c.friendship || 3}" onchange="App.updateCustomer('${c.id}', 'friendship', Number(this.value))" class="w-full h-1 bg-stone-300 rounded-none accent-stone-800 cursor-pointer"></div>
+                                <div><div class="flex justify-between text-xs font-bold text-stone-500 mb-1">規模: ${c.scale || 3}</div><input type="range" min="1" max="5" value="${c.scale || 3}" onchange="App.updateCustomer('${c.id}', 'scale', Number(this.value))" class="w-full h-1 bg-stone-300 rounded-none accent-stone-800 cursor-pointer"></div>
+                             </div>
+                        </div>
+
+                        <!-- COL 2: Activity Form (4/12) -->
+                        <div class="col-span-4 p-6 overflow-y-auto bg-white shadow-[0_0_15px_rgba(0,0,0,0.02)] z-10">
+                            <h3 class="font-bold text-stone-800 mb-6 flex items-center"><span class="bg-stone-900 w-2 h-2 mr-2"></span>活動報告 (REPORT)</h3>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">日付</label><input type="date" id="act-date" class="w-full input-subtle text-sm py-1 font-mono" value="${new Date().toISOString().split('T')[0]}"></div>
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">相手</label><select id="act-person" class="w-full input-subtle text-sm py-1 font-bold">${contactOptions || '<option value="">未登録</option>'}</select></div>
+                                </div>
+                                <div><label class="text-[10px] font-bold text-stone-400 block mb-1">案件名</label><input type="text" id="act-project" class="w-full input-subtle text-sm py-1 font-bold" placeholder="○○邸 新築工事"></div>
+                                <div><label class="text-[10px] font-bold text-stone-400 block mb-1">フェーズ</label><select id="act-phase" class="w-full input-subtle text-sm py-1 font-bold"><option>基本設計</option><option>実施設計</option><option>積算</option><option>着工</option><option>引渡</option></select></div>
+                                
+                                <div class="relative"><label class="text-[10px] font-bold text-stone-400 block mb-1">商談内容</label><textarea id="act-note" class="w-full h-32 p-3 bg-stone-50 border border-stone-200 text-sm resize-none focus:outline-none focus:border-stone-800" placeholder="要点を簡潔に..."></textarea><button onclick="App.startVoice('act-note')" class="absolute right-2 bottom-2 text-stone-400 hover:text-orange-600"><i class="fa-solid fa-microphone"></i></button></div>
+                                <div class="relative bg-yellow-50 p-3 border border-yellow-200"><label class="text-[10px] font-bold text-yellow-600 block mb-1">雑談・近況 (重要)</label><textarea id="act-smalltalk" class="w-full h-20 bg-transparent text-sm resize-none focus:outline-none" placeholder="趣味、休暇の予定..."></textarea><button onclick="App.startVoice('act-smalltalk')" class="absolute right-1 bottom-1 text-yellow-400 hover:text-yellow-600"><i class="fa-solid fa-microphone"></i></button></div>
+                                
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">次回アクション</label><input type="text" id="act-next-action" class="w-full input-subtle text-sm py-1" placeholder="見積提出..."></div>
+                                    <div><label class="text-[10px] font-bold text-stone-400 block mb-1">次回予定日</label><input type="date" id="act-next-date" class="w-full input-subtle text-sm py-1 font-mono"></div>
+                                </div>
+                                <button onclick="App.addActivity('${c.id}')" class="w-full bg-stone-900 text-white py-4 font-bold tracking-widest hover:bg-stone-800 shadow-xl transition-transform active:scale-[0.98]">報告＆AI分析</button>
+                            </div>
+                        </div>
+
+                        <!-- COL 3: History (5/12) -->
+                        <div class="col-span-5 p-6 overflow-y-auto bg-[#f5f5f4]">
+                            <h3 class="text-stone-300 font-bold mb-6 text-xs uppercase tracking-widest text-center border-b border-stone-200 leading-[0.1em]"><span class="bg-[#f5f5f4] px-4">活動履歴 (HISTORY)</span></h3>
+                            <div class="pb-20">${history || '<div class="text-center py-20 text-stone-400 italic font-serif">まだ歴史はない。</div>'}</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Email Modal (Re-used) -->
+                    <dialog id="email-modal" class="p-0 rounded-sm shadow-2xl w-[600px] backdrop:bg-stone-900/50 m-auto open:animate-fade-in border-t-4 border-stone-800"><div class="bg-white p-8"><div class="flex justify-between items-center mb-6"><h3 class="font-bold text-lg text-stone-900 serif">Generated Email</h3><button onclick="document.getElementById('email-modal').close()" class="text-stone-400 hover:text-stone-800"><i class="fa-solid fa-xmark"></i></button></div><p class="text-xs text-stone-400 mb-2">以下をコピーして使え。</p><textarea id="email-content" class="w-full h-64 text-sm p-4 bg-stone-50 border border-stone-200 mb-6 font-mono text-stone-700 leading-relaxed focus:outline-none resize-none"></textarea><button onclick="navigator.clipboard.writeText(document.getElementById('email-content').value); alert('コピーした。')" class="w-full px-4 py-3 bg-orange-600 text-white font-bold tracking-widest hover:bg-orange-500 transition-colors shadow">クリップボードにコピー</button></div></dialog>
+                `;
+            }
+        }
+
+        const NightView = {
+            viewYear: new Date().getFullYear(),
+            viewMonth: new Date().getMonth(),
+            selectedDate: new Date().toISOString().split('T')[0],
+            isReflecting: false,
+            lastAdvice: '',
+            lastEmotionComment: '',
+            emotionPositive: [],
+            emotionNegative: [],
+
+            render() {
+                const s = Store.state;
+                const doneTasks = s.tasks.filter(t => t.done).map(t => `
+                    <div class="flex items-center gap-2 text-stone-400 text-xs mb-1">
+                        <i class="fa-solid fa-circle-check text-orange-600/50"></i>
+                        <span>${t.text}</span>
+                    </div>
+                `).join('');
+
+                // Selected Log Detail
+                const log = s.dailyLogs.find(l => l.date === this.selectedDate);
+                let logDetail = '';
+                if (log) {
+                    logDetail = `
+                        <div class="border-l-4 border-orange-600 pl-6 py-6 bg-stone-900/40 rounded-sm animate-fade-in shadow-inner">
+                            <div class="text-xs font-bold text-stone-500 uppercase tracking-[0.2em] mb-4 font-mono flex justify-between items-center">
+                                <span>${log.date} ${log.night?.timestamp || ''}</span>
+                                <span class="text-[10px] bg-stone-800 px-2 py-0.5 text-stone-400">ARCHIVE</span>
+                            </div>
+                            ${log.morning ? `
+                                <div class="mb-6">
+                                    <div class="text-xs text-indigo-400 font-serif mb-1 italic">テーマ: 「${log.morning.theme}」</div>
+                                    <div class="text-[10px] text-stone-400 font-bold mb-2 uppercase tracking-widest opacity-50">勝利条件: ${log.morning.win}</div>
+                                    <div class="text-[10px] text-stone-500 flex flex-wrap gap-2">
+                                        ${log.morning.tasks ? log.morning.tasks.map(t => `<span class="bg-stone-800 px-2 py-0.5"># ${t}</span>`).join('') : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            ${log.night ? `
+                                <div class="text-lg text-stone-100 leading-relaxed font-serif whitespace-pre-wrap mb-6 border-t border-stone-800 pt-6">${log.night.report}</div>
+                            ` : ''}
+                            ${log.night?.aiAdvice ? `
+                                <div class="mt-8 p-6 bg-stone-950 border border-stone-800 relative overflow-hidden">
+                                    <div class="absolute right-[-10px] bottom-[-10px] opacity-5 text-6xl text-orange-600"><i class="fa-solid fa-user-secret"></i></div>
+                                    <div class="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-3">陣内の助言</div>
+                                    <div class="text-sm text-stone-400 leading-relaxed font-serif relative z-10">${log.night.aiAdvice}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else {
+                    logDetail = `
+                        <div class="h-64 flex flex-col items-center justify-center border border-dashed border-stone-800 rounded-lg text-stone-700">
+                            <i class="fa-solid fa-scroll text-4xl mb-4 opacity-20"></i>
+                            <div class="font-serif italic text-sm">この日の記録はない。</div>
+                            <div class="text-[10px] mt-2 uppercase tracking-widest">No Record for ${this.selectedDate}</div>
+                        </div>
+                    `;
+                }
+
+                // Calendar Logic
+                const firstDay = new Date(this.viewYear, this.viewMonth, 1).getDay();
+                const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+                const today = new Date().toISOString().split('T')[0];
+                const monthName = new Intl.DateTimeFormat('ja-JP', { month: 'long', year: 'numeric' }).format(new Date(this.viewYear, this.viewMonth));
+
+                let calendarCells = '';
+                // Empty cells
+                for (let i = 0; i < firstDay; i++) {
+                    calendarCells += `<div class="p-2"></div>`;
+                }
+                // Day cells
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const dateStr = `${this.viewYear}-${String(this.viewMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const hasLog = s.dailyLogs.some(l => l.date === dateStr);
+                    const isSelected = dateStr === this.selectedDate;
+                    const isToday = dateStr === today;
+
+                    // Check for important appointments (nextDate)
+                    const importantAppointments = s.customers.filter(c => {
+                        if (!c.history) return false;
+                        return c.history.some(h => h.nextDate === dateStr);
+                    });
+                    const hasAppointment = importantAppointments.length > 0;
+
+                    // Build tooltip content for appointments
+                    let appointmentTooltip = '';
+                    if (hasAppointment) {
+                        const customerNames = importantAppointments.map(c => c.name).join(', ');
+                        appointmentTooltip = `title="${importantAppointments.length}件の重要商談: ${customerNames}"`;
+                    }
+
+                    calendarCells += `
+                        <button onclick="App.selectLogDate('${dateStr}')"
+                            class="relative h-10 w-full flex items-center justify-center text-xs rounded-sm transition-all
+                            ${isSelected ? 'bg-orange-600 text-white font-bold shadow-lg shadow-orange-900/20' : 'hover:bg-stone-800'}
+                            ${isToday && !isSelected ? 'text-orange-500 border border-orange-900/50' : ''}
+                            ${!isSelected && !isToday ? 'text-stone-400' : ''}"
+                            ${appointmentTooltip}>
+                            ${d}
+                            ${hasLog && !isSelected ? '<span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-orange-600 rounded-full animate-pulse"></span>' : ''}
+                            ${hasAppointment && !isSelected ? '<span class="absolute top-1 right-1 text-yellow-400 text-xs animate-pulse">⚡</span>' : ''}
+                            ${hasAppointment && isSelected ? '<span class="absolute top-1 right-1 text-white text-xs">⚡</span>' : ''}
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="h-full bg-stone-950 text-stone-300 overflow-y-auto animate-fade-in p-8 pb-32">
+                        <div class="max-w-5xl mx-auto py-12">
+                            <div class="text-center mb-16 px-4">
+                                <h2 class="text-sm font-bold tracking-[0.4em] text-orange-600 uppercase mb-4 font-sans">Evening Reflection</h2>
+                                <h1 class="text-4xl font-serif text-stone-100 mb-2">夕刻の総括</h1>
+                                <p class="text-stone-500 font-serif italic text-sm">"今日を閉じ、明日を拓く。"</p>
+                            </div>
+
+                            <div class="grid grid-cols-12 gap-12">
+                                <!-- Left Sidebar: Calendar & Achievements -->
+                                <div class="col-span-12 lg:col-span-4 space-y-12">
+                                    
+                                    <!-- Calendar Component -->
+                                    <div class="bg-stone-900/30 p-6 rounded-sm border border-stone-800/50">
+                                        <div class="flex justify-between items-center mb-6">
+                                            <h3 class="text-xs font-bold text-stone-200">${monthName}</h3>
+                                            <div class="flex gap-1">
+                                                <button onclick="App.changeCalendarMonth(-1)" class="p-1 hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                                                <button onclick="App.changeCalendarMonth(1)" class="p-1 hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                                            ${['日', '月', '火', '水', '木', '金', '土'].map(w => `<div class="text-[10px] font-bold text-stone-600 uppercase">${w}</div>`).join('')}
+                                        </div>
+                                        <div class="grid grid-cols-7 gap-1">
+                                            ${calendarCells}
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-6">
+                                        <div class="bg-stone-900/50 p-6 border-l border-stone-800">
+                                            <h3 class="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-4">今日の足跡</h3>
+                                            <div class="space-y-1">${doneTasks || '<div class="text-stone-600 italic text-xs">何も成し遂げなかったか？<br>それもまた一日だ。</div>'}</div>
+                                        </div>
+                                        
+                                        <div class="bg-indigo-950/30 p-6 border-l border-indigo-500/30">
+                                            <h3 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">勝利条件の確認</h3>
+                                            <p class="text-sm text-stone-300 font-serif">${s.dailyKpi.winningCondition || '未設定'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right: Journal & History Viewer -->
+                                <div class="col-span-12 lg:col-span-8 space-y-12">
+                                    
+                                    <!-- Reflection Mode / History Viewer -->
+                                    ${this.isReflecting ? `
+                                        <div class="space-y-12 animate-fade-in">
+                                            <div class="bg-stone-900 border-t-8 border-orange-600 p-10 shadow-2xl relative">
+                                                <div class="absolute right-6 top-6 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-quote-right"></i></div>
+                                                <h3 class="text-[10px] font-bold text-orange-600 uppercase tracking-[0.3em] mb-6">陣内の総括 (Strategy Advice)</h3>
+                                                <div class="text-xl text-stone-200 leading-relaxed font-serif italic mb-4">「${this.lastAdvice}」</div>
+                                                <div class="text-[10px] text-stone-500 text-right mt-6">--- 営業参謀 陣内 19:xx</div>
+                                            </div>
+
+                                            ${this.lastEmotionComment ? `
+                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-pink-900/30 p-10 shadow-2xl relative overflow-hidden">
+                                                <div class="absolute right-6 top-6 opacity-5 text-7xl text-pink-500"><i class="fa-solid fa-heart"></i></div>
+                                                <h3 class="text-[10px] font-bold text-pink-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                                                    <i class="fa-solid fa-heart"></i> 今日の感情へのコメント (Emotional Feedback)
+                                                </h3>
+                                                <div class="text-stone-200 leading-relaxed whitespace-pre-wrap">${this.lastEmotionComment}</div>
+                                            </div>
+                                            ` : ''}
+
+                                            <div class="bg-stone-900/40 p-10 border border-stone-800">
+                                                <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-2">
+                                                    <i class="fa-solid fa-compass text-indigo-400"></i> 明日の展望 (Next Strategy)
+                                                </h3>
+                                                <div class="space-y-8">
+                                                    <label class="block">
+                                                        <span class="text-[10px] font-bold text-stone-500 block mb-2 uppercase tracking-widest">明日を貫くテーマ</span>
+                                                        <input type="text" id="next-theme" class="w-full bg-transparent border-b border-stone-800 py-2 text-stone-200 focus:outline-none focus:border-indigo-500 text-lg serif" placeholder="例: 攻勢を強める">
+                                                    </label>
+                                                    <label class="block">
+                                                        <span class="text-[10px] font-bold text-stone-500 block mb-2 uppercase tracking-widest">明日の勝利条件</span>
+                                                        <input type="text" id="next-win" class="w-full bg-transparent border-b border-stone-800 py-2 text-stone-200 focus:outline-none focus:border-indigo-500 text-lg serif" placeholder="例: A社の役員と顔を合わせる">
+                                                    </label>
+                                                    <div class="pt-6 flex justify-end">
+                                                        <button onclick="App.commitTomorrowStrategy()" 
+                                                            class="px-10 py-4 bg-indigo-600 text-white font-bold tracking-[0.2em] hover:bg-indigo-500 transition-all shadow-xl active:scale-95">
+                                                            戦線を確認し離脱する
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ` : (this.selectedDate !== today ? logDetail : `
+                                        <div class="relative group">
+                                            <div class="absolute -inset-1 bg-gradient-to-b from-stone-800 to-transparent opacity-20 rounded-sm blur transition duration-1000 group-hover:opacity-40"></div>
+                                            <div class="relative bg-stone-900 border border-stone-800 p-8 shadow-2xl">
+                                                <div class="flex justify-between items-center mb-6">
+                                                    <h3 class="text-stone-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                                                        <i class="fa-solid fa-pen-fancy text-orange-600"></i> 今日の執筆 (Business Summary)
+                                                    </h3>
+                                                    <span class="text-[10px] font-mono text-stone-600">${today}</span>
+                                                </div>
+                                                <textarea id="night-report-text"
+                                                    class="w-full h-56 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700"
+                                                    placeholder="本日の記録と戦果を記せ..."></textarea>
+
+                                                <!-- 今日の感情セクション -->
+                                                <div class="mt-8 border-t border-stone-800 pt-8">
+                                                    <h3 class="text-stone-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2 mb-4">
+                                                        <i class="fa-solid fa-heart text-pink-500"></i> 今日の感情 (Emotional Log)
+                                                    </h3>
+                                                    <div class="space-y-4">
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-emerald-500 block mb-2 flex items-center gap-1">
+                                                                <i class="fa-solid fa-face-smile"></i> 嬉しかったこと・良かったこと
+                                                            </label>
+                                                            <div id="emotion-positive-list" class="space-y-2 mb-2"></div>
+                                                            <div class="flex gap-2">
+                                                                <input type="text" id="emotion-positive-input"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-emerald-500 placeholder-stone-600"
+                                                                    placeholder="例: A社から見積依頼をもらえた"
+                                                                    onkeydown="if(event.key==='Enter')App.addEmotionItem('positive')">
+                                                                <button onclick="App.addEmotionItem('positive')" class="px-3 py-2 bg-emerald-600/20 border border-emerald-700 text-emerald-400 text-sm hover:bg-emerald-600/40 transition-colors">
+                                                                    <i class="fa-solid fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-amber-500 block mb-2 flex items-center gap-1">
+                                                                <i class="fa-solid fa-cloud"></i> モヤッとしたこと・気になったこと
+                                                            </label>
+                                                            <div id="emotion-negative-list" class="space-y-2 mb-2"></div>
+                                                            <div class="flex gap-2">
+                                                                <input type="text" id="emotion-negative-input"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-amber-500 placeholder-stone-600"
+                                                                    placeholder="例: B社の担当者の反応が薄かった"
+                                                                    onkeydown="if(event.key==='Enter')App.addEmotionItem('negative')">
+                                                                <button onclick="App.addEmotionItem('negative')" class="px-3 py-2 bg-amber-600/20 border border-amber-700 text-amber-400 text-sm hover:bg-amber-600/40 transition-colors">
+                                                                    <i class="fa-solid fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="mt-8 flex justify-end">
+                                                    <button onclick="App.finishDay()"
+                                                        class="group relative inline-flex items-center justify-center px-10 py-4 font-bold text-white transition-all duration-200 bg-stone-100/10 border border-stone-700 hover:bg-orange-600 hover:border-orange-500 hover:text-white active:scale-95 overflow-hidden">
+                                                        <span class="relative tracking-[0.3em]">業務終了</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `)}
+
+                                    <p class="text-[10px] text-stone-600 text-right mt-4 italic">この記録は、お前の成長という名の歴史になる。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const AnalysisView = {
+            render() {
+                const dots = Store.state.customers.map(c => {
+                    const x = ((c.friendship || 3) - 1) / 4 * 100;
+                    const y = 100 - ((c.scale || 3) - 1) / 4 * 100;
+                    const lastH = (c.history || []).slice().reverse().find(h => h.projectName || h.nextDate);
+                    const projName = lastH?.projectName || '';
+                    const nextDate = lastH?.nextDate || '';
+                    const tooltipLines = [c.name, projName ? `📋 ${projName}` : '', nextDate ? `📅 ${nextDate}` : ''].filter(Boolean);
+                    const label = projName || c.name;
+                    return `<div onclick="location.hash='#sfa_detail?id=${c.id}'" class="absolute cursor-pointer hover:scale-110 transition-all group" style="left:${x}%; top:${y}%; transform: translate(-50%, -50%);">
+                        <div class="flex flex-col items-center">
+                            <div class="w-3 h-3 rounded-full bg-stone-800 border-2 border-white shadow-lg group-hover:bg-orange-600 transition-colors"></div>
+                            <div class="mt-1 text-[10px] font-bold text-stone-600 whitespace-nowrap leading-tight text-center group-hover:text-orange-600 transition-colors">
+                                <div>${c.name}</div>
+                                ${projName ? `<div class="text-[9px] font-normal text-stone-400">${projName}</div>` : ''}
+                                ${nextDate ? `<div class="text-[9px] font-normal text-orange-400">${nextDate}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-stone-900 text-white text-xs px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20 rounded shadow-lg pointer-events-none">
+                            <div class="font-bold">${c.name}</div>
+                            ${projName ? `<div class="text-stone-400 mt-0.5">📋 ${projName}</div>` : ''}
+                            ${nextDate ? `<div class="text-orange-400 mt-0.5">📅 ${nextDate}</div>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+                return `<div class="h-full flex flex-col animate-fade-in pb-12 p-8"><h2 class="text-2xl font-bold text-stone-800 serif mb-6">戦略地図</h2><div class="flex-1 bg-white border border-stone-200 shadow-sm relative rounded-sm overflow-hidden m-4" style="background-image: radial-gradient(#d6d3d1 1px, transparent 1px); background-size: 40px 40px;"><div class="absolute left-1/2 top-4 bottom-4 w-px bg-stone-400 border-l border-dashed border-stone-400"></div><div class="absolute top-1/2 left-4 right-4 h-px bg-stone-400 border-t border-dashed border-stone-400"></div><div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（大）</div><div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（小）</div><div class="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（高）</div><div class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（低）</div><div class="absolute inset-8">${dots}</div></div><p class="text-center text-stone-400 text-xs font-serif">"右上の客を狙え。そこが一番美味い。"</p></div>`;
+            }
+        }
+
+        // --- 伝説の営業マン相談モード ---
+        const LEGENDS = {
+            jinuchi: {
+                id: 'jinuchi',
+                name: '陣内',
+                title: '皮肉屋の哲学者',
+                icon: 'fa-user-secret',
+                color: 'orange',
+                bgColor: 'bg-stone-900',
+                borderColor: 'border-orange-600',
+                quote: '"仕事なんてのは、死ぬまでの暇つぶしだ。"',
+                prompt: `あなたは伊坂幸太郎の小説に登場する「陣内」のような人格だ。
+                    - 皮肉屋だが、独自の哲学と正義感を持つ。
+                    - 権威や形式ばったことは嫌い。
+                    - しかし、仕事に関しては意外と核心をつく鋭いアドバイスをする。
+                    - 敬語は使うな。少しぶっきらぼうでいい。
+                    - 建築営業のプロとしての視点を忘れるな。`
+            },
+            kumagai: {
+                id: 'kumagai',
+                name: '熊谷',
+                title: '鬼の飛び込み王',
+                icon: 'fa-fire',
+                color: 'red',
+                bgColor: 'bg-red-900',
+                borderColor: 'border-red-500',
+                quote: '"量は質を凌駕する。100回断られたら、101回行け。"',
+                prompt: `あなたは「熊谷」という伝説の営業マンだ。
+                    - 昭和の営業魂を持ち、飛び込み営業で数々の伝説を作った。
+                    - 根性論を重視し、とにかく行動量で勝負するスタイル。
+                    - 「断られてからが本番」が口癖。
+                    - 熱血で、時に暑苦しいが、その情熱は本物。
+                    - 敬語は使わない。体育会系の口調で話せ。
+                    - 具体的な行動（訪問回数、電話の回数など）を重視したアドバイスをしろ。`
+            },
+            kanzaki: {
+                id: 'kanzaki',
+                name: '神崎',
+                title: '外資系エース',
+                icon: 'fa-chart-line',
+                color: 'blue',
+                bgColor: 'bg-blue-900',
+                borderColor: 'border-blue-400',
+                quote: '"感情を排除しろ。数字だけが真実を語る。"',
+                prompt: `あなたは「神崎」という外資系企業出身のトップセールスだ。
+                    - 徹底的にロジカルで、データドリブンな営業スタイル。
+                    - KPI、コンバージョン率、パイプライン管理を重視。
+                    - 感情論を嫌い、すべてを数値化して考える。
+                    - 冷静で、時に冷たく感じるが、結果は確実に出す。
+                    - 丁寧語で話すが、無駄な言葉は一切使わない。
+                    - フレームワークや分析手法を交えたアドバイスをしろ。`
+            },
+            machida: {
+                id: 'machida',
+                name: '町田のおやじ',
+                title: '人情派の古狸',
+                icon: 'fa-handshake',
+                color: 'amber',
+                bgColor: 'bg-amber-900',
+                borderColor: 'border-amber-500',
+                quote: '"商売は人と人だ。信頼がなきゃ、何も始まらねえ。"',
+                prompt: `あなたは「町田のおやじ」という地元で50年商売を続けてきた不動産屋の親父だ。
+                    - 義理人情を何より大切にする。
+                    - 長期的な関係構築を重視し、目先の利益より信頼を優先。
+                    - 「飲みニケーション」を信じている。
+                    - 人の機微に敏感で、相手の本音を見抜く力がある。
+                    - 下町言葉で、親しみやすく話せ。
+                    - 人間関係や信頼構築についてのアドバイスを重視しろ。`
+            },
+            mizusawa: {
+                id: 'mizusawa',
+                name: '水沢',
+                title: '傾聴の女王',
+                icon: 'fa-ear-listen',
+                color: 'purple',
+                bgColor: 'bg-purple-900',
+                borderColor: 'border-purple-400',
+                quote: '"売るな。聴け。答えは常に相手の中にある。"',
+                prompt: `あなたは「水沢」という女性トップセールスだ。
+                    - 傾聴力と共感力が武器。相手の話を徹底的に聴く。
+                    - 顧客心理の分析が得意で、相手が何を求めているかを見抜く。
+                    - 押し売りは絶対にしない。相手から「お願いします」と言わせる。
+                    - 穏やかで優しいが、本質を突く洞察力を持つ。
+                    - 丁寧で柔らかい口調で話せ。
+                    - 相手の心理状態や感情面に着目したアドバイスをしろ。`
+            }
+        };
+
+        const LegendsView = {
+            selectedLegend: null,
+            question: '',
+            answers: [],
+            isAsking: false,
+            showHistory: false, // 履歴表示モード
+
+            renderHistory() {
+                const logs = Store.state.legendConsultations || [];
+                if (logs.length === 0) {
+                    return `
+                        <div class="text-center py-12 text-stone-400">
+                            <i class="fa-solid fa-clock-rotate-left text-4xl mb-4 opacity-30"></i>
+                            <p class="font-serif">まだ相談履歴はないよ。</p>
+                        </div>`;
+                }
+                return logs.map(log => {
+                    const legend = LEGENDS[log.legendId];
+                    const date = new Date(log.date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    return `
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-4 hover:shadow-md transition-shadow cursor-pointer" onclick="LegendsView.loadConsultation('${log.id}')">
+                            <div class="flex items-start gap-3">
+                                <div class="${legend.bgColor} w-10 h-10 rounded flex items-center justify-center text-white shrink-0">
+                                    <i class="fa-solid ${legend.icon}"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="text-xs font-bold text-stone-500">${date}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full ${legend.bgColor.replace('bg-', 'bg-')} text-white">${legend.name}</span>
+                                    </div>
+                                    <div class="text-sm font-bold text-stone-800 mb-1">${log.question}</div>
+                                    <div class="text-sm text-stone-600">${log.answer}</div>
+                                </div>
+                            </div>
+                        `;
+                }).join('');
+            },
+
+            loadConsultation(id) {
+                const log = Store.state.legendConsultations.find(l => l.id === id);
+                if (!log) return;
+                this.selectedLegend = log.legendId;
+                this.answers = [
+                    { role: 'user', content: log.question },
+                    { role: 'assistant', content: log.answer }
+                ];
+                this.showHistory = false;
+                App.route();
+            },
+
+            render() {
+                const legends = Object.values(LEGENDS);
+
+                if (!this.selectedLegend) {
+                    // キャラクター選択画面
+                    const content = this.showHistory ? this.renderHistory() : `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${legends.map(l => `
+                                <div onclick="LegendsView.selectLegend('${l.id}')"
+                                    class="group cursor-pointer ${l.bgColor} p-6 rounded-sm shadow-xl hover:scale-[1.02] transition-all border-l-4 ${l.borderColor} relative overflow-hidden">
+                                    <div class="absolute right-2 top-2 opacity-10 text-6xl text-white"><i class="fa-solid ${l.icon}"></i></div>
+                                    <div class="relative z-10">
+                                        <div class="text-${l.color}-400 text-xs font-bold uppercase tracking-widest mb-2">${l.title}</div>
+                                        <h3 class="text-2xl font-bold text-white serif mb-3">${l.name}</h3>
+                                        <p class="text-white/60 text-sm italic font-serif">${l.quote}</p>
+                                    </div>
+                                    <div class="absolute bottom-4 right-4 text-white/30 group-hover:text-white/60 transition-colors">
+                                        <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="mt-12 text-center">
+                            <p class="text-stone-400 text-xs font-serif italic">"${this.showHistory ? '師を選べ' : '相談履歴'}"道は一つではない。"</p>
+                        </div>
+                    `;
+                    return `
+                        <div class="h-full overflow-y-auto animate-fade-in">
+                            <div class="max-w-4xl mx-auto p-8 pb-20">
+                                <div class="flex justify-between items-center mb-8">
+                                    <div class="text-center flex-1">
+                                        <h2 class="text-3xl font-bold text-stone-800 serif mb-2">伝説の相談室</h2>
+                                        <p class="text-stone-500">営業の達人たちに相談できる。それぞれのスタイルは異なる。</p>
+                                    </div>
+                                    <button onclick="LegendsView.showHistory = !LegendsView.showHistory; App.route()"
+                                        class="px-4 py-2 bg-stone-100 text-stone-700 font-bold rounded hover:bg-stone-200 transition-colors flex items-center gap-2">
+                                        <i class="fa-solid fa-clock-rotate-left"></i>
+                                        ${this.showHistory ? 'キャラ選択' : '相談履歴'}
+                                        <span class="bg-stone-300 text-stone-600 text-xs px-2 py-0.5 rounded-full">${Store.state.legendConsultations.length}</span>
+                                    </button>
+                                </div>
+                                ${content}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 相談画面
+                const legend = LEGENDS[this.selectedLegend];
+                return `
+                    <div class="h-full flex flex-col animate-fade-in">
+                        <!-- Header -->
+                        <div class="${legend.bgColor} p-6 border-b-4 ${legend.borderColor} relative overflow-hidden">
+                            <div class="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 text-8xl text-white"><i class="fa-solid ${legend.icon}"></i></div>
+                            <div class="relative z-10 flex items-center gap-4">
+                                <button onclick="LegendsView.back()" class="text-white/50 hover:text-white transition-colors">
+                                    <i class="fa-solid fa-arrow-left fa-lg"></i>
+                                </button>
+                                <div>
+                                    <div class="text-${legend.color}-400 text-xs font-bold uppercase tracking-widest">${legend.title}</div>
+                                    <h2 class="text-2xl font-bold text-white serif">${legend.name}に相談</h2>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-stone-100" id="legends-chat">
+                            ${this.answers.length === 0 ? `
+                                <div class="text-center py-12 text-stone-400">
+                                    <i class="fa-solid ${legend.icon} text-4xl mb-4 opacity-30"></i>
+                                    <p class="font-serif italic">${legend.quote}</p>
+                                    <p class="text-xs mt-2">何でも聞いてみろ。</p>
+                                </div>
+                            ` : this.answers.map(a => `
+                                <div class="max-w-2xl ${a.role === 'user' ? 'ml-auto' : 'mr-auto'}">
+                                    ${a.role === 'user' ? `
+                                        <div class="bg-white p-4 rounded-lg shadow-sm border border-stone-200 text-stone-800">
+                                            ${a.content}
+                                        </div>
+                                        <div class="text-xs text-stone-400 mt-1 text-right">あなた</div>
+                                    ` : `
+                                        <div class="${legend.bgColor} p-4 rounded-lg shadow-lg text-white ${legend.borderColor} border-l-4">
+                                            <div class="whitespace-pre-wrap leading-relaxed">${a.content}</div>
+                                        </div>
+                                        <div class="text-xs text-stone-400 mt-1 flex items-center gap-1">
+                                            <i class="fa-solid ${legend.icon}"></i> ${legend.name}
+                                            <button onclick="App.saveAsFamousQuote(${this.answers.indexOf(a)})" class="ml-2 text-orange-500 hover:text-orange-600 transition-colors" title="名言として保存">
+                                                <i class="fa-solid fa-star"></i>
+                                            </button>
+                                        </div>
+                                    `}
+                                </div>
+                            `).join('')}
+
+                            ${this.isAsking ? `
+                                <div class="max-w-2xl mr-auto">
+                                    <div class="${legend.bgColor} p-4 rounded-lg shadow-lg text-white/60 ${legend.borderColor} border-l-4 animate-pulse">
+                                        <i class="fa-solid fa-ellipsis fa-beat-fade"></i> 考え中...
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Input Area -->
+                        <div class="p-4 bg-white border-t border-stone-200">
+                            <div class="flex gap-3 max-w-3xl mx-auto">
+                                <textarea id="legends-question"
+                                    class="flex-1 p-4 border border-stone-300 rounded-lg resize-none focus:outline-none focus:border-stone-500 text-sm"
+                                    rows="2"
+                                    placeholder="相談したいことを入力しろ..."
+                                    onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); App.askLegend(); }"
+                                >${this.question}</textarea>
+                                <button onclick="App.askLegend()"
+                                    class="px-6 ${legend.bgColor} text-white font-bold rounded-lg hover:opacity-90 transition-opacity shadow-lg disabled:opacity-50"
+                                    ${this.isAsking ? 'disabled' : ''}>
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            selectLegend(id) {
+                this.selectedLegend = id;
+                this.answers = [];
+                this.question = '';
+                App.route();
+            },
+
+            back() {
+                this.selectedLegend = null;
+                this.answers = [];
+                this.question = '';
+                App.route();
+            }
+        };
+
+        const QuotesView = {
+            render() {
+                const quotes = Store.state.famousQuotes || [];
+                if (quotes.length === 0) {
+                    return `
+                        <div class="h-full overflow-y-auto animate-fade-in">
+                            <div class="max-w-4xl mx-auto p-8 pb-20">
+                                <h2 class="text-3xl font-bold text-stone-800 serif mb-2">名言コレクション</h2>
+                                <p class="text-stone-500 mb-8">伝説の営業マンたちの心に残る言葉を保存する場所だ。</p>
+                                <div class="text-center py-20 text-stone-400">
+                                    <i class="fa-solid fa-quote-left text-6xl mb-4 opacity-20"></i>
+                                    <p class="font-serif text-lg">まだ名言は保存されていない。</p>
+                                    <p class="text-sm mt-2">伝説の相談室で相談して、気に入った回答に<i class="fa-solid fa-star text-orange-400"></i>を押して保存できるぞ。</p>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+
+                return `
+                    <div class="h-full overflow-y-auto animate-fade-in">
+                        <div class="max-w-4xl mx-auto p-8 pb-20">
+                            <h2 class="text-3xl font-bold text-stone-800 serif mb-2">名言コレクション</h2>
+                            <p class="text-stone-500 mb-8">保存した名言は${quotes.length}件</p>
+
+                            <div class="space-y-6">
+                                ${quotes.map(q => {
+                                    const legend = LEGENDS[q.legendId];
+                                    const date = new Date(q.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+                                    return `
+                                        <div class="bg-white p-6 rounded-lg shadow-sm border border-stone-200 hover:shadow-md transition-shadow relative group">
+                                            <button onclick="Store.deleteFamousQuote('${q.id}'); App.route();"
+                                                class="absolute top-4 right-4 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                            <div class="flex items-center gap-3 mb-4">
+                                                <div class="${legend?.bgColor || 'bg-stone-600'} w-10 h-10 rounded flex items-center justify-center text-white shrink-0">
+                                                    <i class="fa-solid ${legend?.icon || 'fa-user'}"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="text-xs font-bold text-stone-400">${date}</div>
+                                                    <div class="text-sm font-bold text-stone-800">${legend?.name || q.legendName}</div>
+                                                </div>
+                                            </div>
+                                            <div class="text-stone-400 text-xs mb-2 italic">Q: ${q.question}</div>
+                                            <div class="text-stone-700 font-medium leading-relaxed border-l-4 border-orange-400 pl-4 py-2 bg-orange-50/50">
+                                                ${q.answer}
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        const GalleryView = {
+            render() {
+                const s = Store.state;
+                const customers = s.customers || [];
+                if (customers.length === 0) {
+                    return `
+                        <div class="h-full overflow-y-auto animate-fade-in">
+                            <div class="max-w-5xl mx-auto p-8 pb-20">
+                                <h2 class="text-3xl font-bold text-stone-800 serif mb-2">お客様の顔ギャラリー</h2>
+                                <p class="text-stone-500 mb-8">すべてのお客様をカード形式で一覧表示する。</p>
+                                <div class="text-center py-20 text-stone-400">
+                                    <i class="fa-solid fa-user-group text-6xl mb-4 opacity-20"></i>
+                                    <p class="font-serif text-lg">まだ顧客が登録されていない。</p>
+                                    <p class="text-sm mt-2">顧客台帳から顧客を登録してみよう。</p>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+
+                // 引渡済み（成約済み）をチェック
+                const deliveredCustomers = customers.filter(c => {
+                    if (!c.history) return false;
+                    return c.history.some(h => h.phase === '引渡');
+                });
+
+                return `
+                    <div class="h-full overflow-y-auto animate-fade-in">
+                        <div class="max-w-6xl mx-auto p-8 pb-20">
+                            <h2 class="text-3xl font-bold text-stone-800 serif mb-2">お客様の顔ギャラリー</h2>
+                            <p class="text-stone-500 mb-8">全${customers.length}件中、${deliveredCustomers.length}件が引渡済み</p>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                ${customers.map(c => {
+                                    // 最新の活動履歴を取得
+                                    const lastHistory = c.history ? c.history[c.history.length - 1] : null;
+                                    const isDelivered = lastHistory && lastHistory.phase === '引渡';
+                                    const catColors = { '主要顧客': 'bg-indigo-100 text-indigo-800', '中堅顧客': 'bg-stone-200 text-stone-700', '新規・休眠': 'bg-orange-100 text-orange-800', '施主・役所': 'bg-teal-100 text-teal-800' };
+
+                                    return `
+                                        <a href="#sfa_detail?id=${c.id}"
+                                            class="bg-white rounded-lg shadow-sm border border-stone-200 hover:shadow-lg hover:border-orange-300 transition-all group">
+                                            <!-- Card Header -->
+                                            <div class="p-4 border-b border-stone-100">
+                                                <div class="flex items-start justify-between">
+                                                    <div class="flex-1 min-w-0">
+                                                        <h3 class="font-bold text-stone-800 truncate text-sm">${c.name}</h3>
+                                                        <p class="text-xs text-stone-500 mt-1 truncate">${c.category || '未分類'}</p>
+                                                    </div>
+                                                    ${isDelivered ? '<span class="text-amber-400 text-xl animate-pulse" title="引渡済み">★</span>' : ''}
+                                                </div>
+                                            </div>
+
+                                            <!-- Card Body -->
+                                            <div class="p-4 space-y-3">
+                                                <!-- Project Info -->
+                                                <div class="flex items-center gap-2 text-xs text-stone-600">
+                                                    <i class="fa-solid fa-building text-stone-400 w-4"></i>
+                                                    <span class="truncate">${lastHistory?.projectName || '---'}</span>
+                                                </div>
+
+                                                <!-- Phase Badge -->
+                                                <div>
+                                                    <span class="inline-block px-2 py-1 rounded-full text-xs ${catColors[c.category] || 'bg-stone-100 text-stone-600'}">
+                                                        ${lastHistory?.phase || '---'}
+                                                    </span>
+                                                </div>
+
+                                                <!-- Friendship/Scale -->
+                                                <div class="flex gap-2">
+                                                    <div class="flex-1 text-center py-1 bg-stone-50 rounded">
+                                                        <div class="text-[10px] text-stone-400">信頼</div>
+                                                        <div class="text-sm font-bold text-stone-700">${c.friendship || 3}</div>
+                                                    </div>
+                                                    <div class="flex-1 text-center py-1 bg-stone-50 rounded">
+                                                        <div class="text-[10px] text-stone-400">規模</div>
+                                                        <div class="text-sm font-bold text-stone-700">${c.scale || 3}</div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Last Visit -->
+                                                <div class="text-xs text-stone-400 flex items-center gap-1">
+                                                    <i class="fa-solid fa-clock"></i>
+                                                    ${c.lastVisit || '未訪問'}
+                                                </div>
+                                            </div>
+
+                                            <!-- Card Footer -->
+                                            <div class="px-4 py-2 bg-stone-50 border-t border-stone-100 text-center">
+                                                <span class="text-xs text-stone-500 group-hover:text-orange-600 transition-colors">詳細を見る <i class="fa-solid fa-arrow-right ml-1"></i></span>
+                                            </div>
+                                        </a>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        const NewCustomerModal = {
+            render() {
+                return `
+                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div class="bg-white p-8 w-[480px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative">
+                            <button onclick="App.closeModal()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                            <h2 class="font-bold text-xl mb-6 serif text-stone-800">新規顧客登録</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-stone-400 mb-1">会社名 (Company Name)</label>
+                                    <input type="text" id="new-name" class="w-full border-b border-stone-300 py-2 outline-none text-lg font-bold text-stone-800 focus:border-orange-500 cursor-text" placeholder="例: ○○建設 株式会社" autofocus>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-stone-400 mb-1">区分 (Category)</label>
+                                    <select id="new-cat" class="w-full border-b border-stone-300 py-2 outline-none text-sm bg-transparent">
+                                        <option>主要顧客</option><option selected>中堅顧客</option><option>新規・休眠</option><option>施主・役所</option>
+                                    </select>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">担当者名 (Contact)</label>
+                                        <input type="text" id="new-p-name" class="w-full border-b border-stone-300 py-2 outline-none text-sm" placeholder="担当者氏名">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">役職 (Role)</label>
+                                        <input type="text" id="new-p-role" class="w-full border-b border-stone-300 py-2 outline-none text-sm" placeholder="部長、監督など">
+                                    </div>
+                                </div>
+                            </div>
+                            <button onclick="App.saveNewCustomer()" class="w-full bg-stone-900 text-white mt-8 py-3 font-bold tracking-widest hover:bg-orange-600 transition-colors shadow-lg">
+                                登録
+                            </button>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        // --- 名刺スキャンモーダル ---
+        const BusinessCardScanModal = {
+            capturedImage: null,
+            extractedData: null,
+            step: 'camera', // camera | preview | result | impression
+
+            render() {
+                if (this.step === 'camera') {
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+                            <div class="bg-stone-900 p-6 w-[600px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
+                                <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-500 hover:text-stone-100 z-10"><i class="fa-solid fa-xmark fa-lg"></i></button>
+
+                                <div class="text-center mb-6">
+                                    <h2 class="font-bold text-xl serif flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-id-card text-orange-600"></i> 名刺スキャン
+                                    </h2>
+                                    <p class="text-stone-500 text-xs mt-1">カメラで名刺を撮影するか、画像をアップロードしろ</p>
+                                </div>
+
+                                <div class="relative bg-black rounded-sm overflow-hidden mb-4" style="aspect-ratio: 16/10;">
+                                    <video id="card-camera" autoplay playsinline class="w-full h-full object-cover"></video>
+                                    <div class="absolute inset-0 pointer-events-none border-2 border-dashed border-orange-600/50 m-8 rounded-lg"></div>
+                                    <div class="absolute bottom-2 left-2 text-xs text-orange-600 bg-black/50 px-2 py-1 rounded"><i class="fa-solid fa-video mr-1"></i>LIVE</div>
+                                </div>
+
+                                <div class="flex gap-3">
+                                    <button onclick="App.captureCard()" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-4 font-bold tracking-widest transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-camera"></i> 撮影
+                                    </button>
+                                    <label class="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-4 font-bold tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-upload"></i> アップロード
+                                        <input type="file" accept="image/*" onchange="App.uploadCard(event)" class="hidden">
+                                    </label>
+                                </div>
+
+                                <canvas id="card-canvas" class="hidden"></canvas>
+                            </div>
+                        </div>`;
+                }
+
+                if (this.step === 'preview') {
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+                            <div class="bg-stone-900 p-6 w-[600px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
+                                <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-500 hover:text-stone-100"><i class="fa-solid fa-xmark fa-lg"></i></button>
+
+                                <div class="text-center mb-6">
+                                    <h2 class="font-bold text-xl serif"><i class="fa-solid fa-magnifying-glass-plus text-orange-600 mr-2"></i>確認</h2>
+                                    <p class="text-stone-500 text-xs mt-1">この画像でよければ「解析開始」を押せ</p>
+                                </div>
+
+                                <div class="bg-black rounded-sm overflow-hidden mb-4 flex items-center justify-center" style="aspect-ratio: 16/10;">
+                                    <img id="card-preview-img" src="${this.capturedImage}" class="max-w-full max-h-full object-contain">
+                                </div>
+
+                                <div class="flex gap-3">
+                                    <button onclick="App.retakeCard()" class="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-3 font-bold transition-all flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-rotate-left"></i> 撮り直す
+                                    </button>
+                                    <button onclick="App.analyzeCard()" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-3 font-bold tracking-widest transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> 解析開始
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+
+                if (this.step === 'result') {
+                    const d = this.extractedData || {};
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8">
+                            <div class="bg-white p-8 w-[550px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-900">
+                                <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
+
+                                <div class="flex items-start gap-4 mb-6">
+                                    <div class="w-24 h-16 bg-stone-100 rounded overflow-hidden shrink-0">
+                                        <img src="${this.capturedImage}" class="w-full h-full object-cover">
+                                    </div>
+                                    <div>
+                                        <h2 class="font-bold text-xl serif text-stone-800">解析完了</h2>
+                                        <p class="text-stone-500 text-xs mt-1">内容を確認して登録しろ。修正も可能だ。</p>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4 mb-6">
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">会社名</label>
+                                        <input type="text" id="card-company" value="${d.company || ''}" class="w-full border-b-2 border-stone-200 py-2 outline-none text-lg font-bold focus:border-orange-500">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">氏名</label>
+                                            <input type="text" id="card-name" value="${d.name || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm font-bold focus:border-orange-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">役職</label>
+                                            <input type="text" id="card-role" value="${d.role || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm focus:border-orange-500">
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">電話番号</label>
+                                            <input type="text" id="card-phone" value="${d.phone || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm font-mono focus:border-orange-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-stone-400 mb-1">メール</label>
+                                            <input type="text" id="card-email" value="${d.email || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm font-mono focus:border-orange-500">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">住所</label>
+                                        <input type="text" id="card-address" value="${d.address || ''}" class="w-full border-b border-stone-200 py-2 outline-none text-sm focus:border-orange-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-stone-400 mb-1">区分</label>
+                                        <select id="card-category" class="w-full border-b border-stone-200 py-2 outline-none text-sm bg-transparent">
+                                            <option>主要顧客</option><option selected>中堅顧客</option><option>新規・休眠</option><option>施主・役所</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <button onclick="App.proceedToImpression()" class="w-full bg-stone-900 text-white py-4 font-bold tracking-widest hover:bg-orange-600 transition-colors shadow-lg flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-user-secret"></i> 陣内に第一印象を伝える
+                                </button>
+                            </div>
+                        </div>`;
+                }
+
+                if (this.step === 'impression') {
+                    const d = this.extractedData || {};
+                    return `
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+                            <div class="bg-stone-900 p-8 w-[500px] shadow-2xl border-l-4 border-orange-600 animate-fade-in relative text-stone-100">
+                                <div class="absolute right-4 top-4 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-user-secret"></i></div>
+
+                                <div class="mb-6">
+                                    <h2 class="font-bold text-xl serif mb-2">で、こいつはどんな奴だった？</h2>
+                                    <p class="text-stone-500 text-sm">${d.name || '名無し'} @ ${d.company || '所属不明'}</p>
+                                </div>
+
+                                <div class="mb-6">
+                                    <label class="block text-xs font-bold text-stone-500 mb-2 uppercase tracking-wider">第一印象 (First Impression)</label>
+                                    <textarea id="card-impression" class="w-full h-32 bg-stone-800 border border-stone-700 p-4 text-sm resize-none focus:outline-none focus:border-orange-600 placeholder-stone-600" placeholder="見た目、話し方、雰囲気、気になった点..."></textarea>
+                                </div>
+
+                                <div class="flex gap-3">
+                                    <button onclick="App.saveFromCard(false)" class="flex-1 bg-stone-700 hover:bg-stone-600 text-white py-3 font-bold transition-all">
+                                        スキップして登録
+                                    </button>
+                                    <button onclick="App.saveFromCard(true)" class="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-3 font-bold tracking-widest transition-all active:scale-95 shadow-lg">
+                                        登録完了
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+            }
+        };
+
+        // --- Core ---
+        window.App = {
+            init() {
+                Store.init();
+                window.addEventListener('hashchange', () => this.route());
+
+                // Keyboard shortcut escape
+                window.onkeydown = (e) => { if (e.key === 'Escape') this.closeModal(); };
+
+                if (!location.hash) location.hash = '#dashboard';
+                else this.route();
+            },
+            openSettings() { document.getElementById('modal-root').innerHTML = SettingsModal.render(); },
+            openNewCustomerModal() { document.getElementById('modal-root').innerHTML = NewCustomerModal.render(); },
+            closeModal() { document.getElementById('modal-root').innerHTML = ''; },
+
+            // --- 名刺スキャン機能 ---
+            cardStream: null,
+
+            async openCardScan() {
+                BusinessCardScanModal.step = 'camera';
+                BusinessCardScanModal.capturedImage = null;
+                BusinessCardScanModal.extractedData = null;
+                document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+
+                // カメラ起動
+                try {
+                    this.cardStream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+                    });
+                    const video = document.getElementById('card-camera');
+                    if (video) video.srcObject = this.cardStream;
+                } catch (e) {
+                    console.error('Camera access failed:', e);
+                    alert('カメラにアクセスできない。ブラウザの権限を確認しろ。');
+                }
+            },
+
+            closeCardScan() {
+                if (this.cardStream) {
+                    this.cardStream.getTracks().forEach(t => t.stop());
+                    this.cardStream = null;
+                }
+                this.closeModal();
+            },
+
+            captureCard() {
+                const video = document.getElementById('card-camera');
+                const canvas = document.getElementById('card-canvas');
+                if (!video || !canvas) return;
+
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+
+                BusinessCardScanModal.capturedImage = canvas.toDataURL('image/jpeg', 0.9);
+                BusinessCardScanModal.step = 'preview';
+
+                // カメラ停止
+                if (this.cardStream) {
+                    this.cardStream.getTracks().forEach(t => t.stop());
+                    this.cardStream = null;
+                }
+
+                document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+            },
+
+            uploadCard(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    BusinessCardScanModal.capturedImage = e.target.result;
+                    BusinessCardScanModal.step = 'preview';
+
+                    if (this.cardStream) {
+                        this.cardStream.getTracks().forEach(t => t.stop());
+                        this.cardStream = null;
+                    }
+
+                    document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+                };
+                reader.readAsDataURL(file);
+            },
+
+            retakeCard() {
+                BusinessCardScanModal.step = 'camera';
+                BusinessCardScanModal.capturedImage = null;
+                this.openCardScan();
+            },
+
+            async analyzeCard() {
+                const s = Store.state.userSettings;
+                if (!s.apiKey) {
+                    alert('APIキーがないぞ。設定画面から入れろ。');
+                    return;
+                }
+
+                document.getElementById('loading').classList.remove('hidden');
+
+                try {
+                    const imageData = BusinessCardScanModal.capturedImage.split(',')[1]; // Base64 data
+
+                    const prompt = `この名刺の画像から情報を抽出して、以下のJSON形式で返せ。読み取れない項目は空文字にしろ。
+                    {
+                        "company": "会社名",
+                        "name": "氏名",
+                        "role": "役職・部署",
+                        "phone": "電話番号",
+                        "email": "メールアドレス",
+                        "address": "住所"
+                    }
+                    JSONのみを返せ。説明は不要だ。`;
+
+                    const res = await fetch(`https://generativelanguage.googleapis.com/${s.apiVersion || 'v1beta'}/models/${s.aiModel || 'gemini-1.5-flash'}:generateContent?key=${s.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                role: 'user',
+                                parts: [
+                                    { text: prompt },
+                                    { inline_data: { mime_type: 'image/jpeg', data: imageData } }
+                                ]
+                            }]
+                        })
+                    });
+
+                    if (!res.ok) throw new Error('API request failed');
+
+                    const data = await res.json();
+                    const text = data.candidates[0].content.parts[0].text;
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+                    if (!jsonMatch) throw new Error('JSON parse failed');
+
+                    BusinessCardScanModal.extractedData = JSON.parse(jsonMatch[0]);
+                    BusinessCardScanModal.step = 'result';
+                    document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+
+                } catch (e) {
+                    console.error('Card analysis failed:', e);
+                    alert('名刺の解析に失敗した: ' + e.message);
+                } finally {
+                    document.getElementById('loading').classList.add('hidden');
+                }
+            },
+
+            proceedToImpression() {
+                // フォームから最新値を取得
+                BusinessCardScanModal.extractedData = {
+                    company: document.getElementById('card-company').value,
+                    name: document.getElementById('card-name').value,
+                    role: document.getElementById('card-role').value,
+                    phone: document.getElementById('card-phone').value,
+                    email: document.getElementById('card-email').value,
+                    address: document.getElementById('card-address').value,
+                    category: document.getElementById('card-category').value
+                };
+                BusinessCardScanModal.step = 'impression';
+                document.getElementById('modal-root').innerHTML = BusinessCardScanModal.render();
+            },
+
+            async saveFromCard(withImpression) {
+                const d = BusinessCardScanModal.extractedData;
+                const impression = withImpression ? document.getElementById('card-impression').value : '';
+
+                if (!d.company) {
+                    alert('会社名は必須だ。');
+                    return;
+                }
+
+                const newC = {
+                    id: 'c_' + Date.now(),
+                    name: d.company,
+                    category: d.category || '中堅顧客',
+                    contacts: d.name ? [{
+                        name: d.name,
+                        role: d.role || '',
+                        phone: d.phone || '',
+                        email: d.email || ''
+                    }] : [],
+                    address: d.address || '',
+                    phase: '基本設計',
+                    rank: 1,
+                    friendship: 3,
+                    scale: 3,
+                    lastVisit: '',
+                    history: [],
+                    firstImpression: impression,
+                    cardImage: BusinessCardScanModal.capturedImage
+                };
+
+                Store.update('customers', [...Store.state.customers, newC]);
+
+                // 陣内からのコメントを取得（印象が入力されている場合）
+                if (impression) {
+                    this.getJinuchiComment(newC, impression);
+                }
+
+                this.closeCardScan();
+                location.hash = '#sfa_detail?id=' + newC.id;
+            },
+
+            async getJinuchiComment(customer, impression) {
+                const s = Store.state.userSettings;
+                if (!s.apiKey) return;
+
+                try {
+                    const prompt = `
+                        新しく名刺交換した相手について:
+                        会社: ${customer.name}
+                        担当者: ${customer.contacts[0]?.name || '不明'}
+                        役職: ${customer.contacts[0]?.role || '不明'}
+
+                        営業マンの第一印象: "${impression}"
+
+                        この情報を踏まえて、陣内として:
+                        1. この相手との付き合い方のアドバイス（1-2文）
+                        2. 注意点があれば（1文）
+
+                        短く、皮肉を込めて、しかし本質的に答えろ。
+                    `;
+
+                    const result = await GeminiService.generate(prompt);
+                    if (result) {
+                        // 履歴に陣内のコメントを追加
+                        const customers = [...Store.state.customers];
+                        const c = customers.find(x => x.id === customer.id);
+                        if (c) {
+                            c.history.push({
+                                date: new Date().toISOString().split('T')[0],
+                                phase: '初対面',
+                                projectName: '名刺交換',
+                                note: `第一印象: ${impression}`,
+                                aiAdvice: { analysis: result, nextMove: '', relationship: '' }
+                            });
+                            Store.update('customers', customers);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Jinuchi comment failed:', e);
+                }
+            },
+
+            saveNewCustomer() {
+                const name = document.getElementById('new-name').value;
+                const cat = document.getElementById('new-cat').value;
+                const pName = document.getElementById('new-p-name').value;
+                const pRole = document.getElementById('new-p-role').value;
+
+                if (!name) { alert('会社名は必須だ。'); return; }
+
+                const newC = {
+                    id: 'c_' + Date.now(),
+                    name: name,
+                    category: cat,
+                    contacts: pName ? [{ name: pName, role: pRole }] : [],
+                    phase: '基本設計', rank: 1, friendship: 3, scale: 3, lastVisit: '', history: []
+                };
+
+                Store.update('customers', [...Store.state.customers, newC]);
+                this.closeModal();
+                location.hash = '#sfa_detail?id=' + newC.id;
+            },
+
+            route() {
+                const hash = location.hash.slice(1) || 'dashboard';
+                const baseHash = hash.split('?')[0];
+                const view = {
+                    'dashboard': DashboardView, 'morning': MorningView, 'sfa': SfaListView,
+                    'sfa_detail': SfaDetailView, 'night': NightView, 'analysis': AnalysisView,
+                    'warehouse': WarehouseView, 'legends': LegendsView, 'quotes': QuotesView, 'gallery': GalleryView
+                }[baseHash];
+
+                document.getElementById('view-container').innerHTML = view ? view.render() : 'Not Found';
+
+                document.querySelectorAll('.sidebar-item').forEach(el => {
+                    if (el.getAttribute('data-view') === baseHash) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+            },
+
+            // Warehouse Logic
+            updateWarehouseList() {
+                const el = document.getElementById('warehouse-list-container');
+                if (el) el.innerHTML = WarehouseView.renderList();
+            },
+
+            async saveWarehouseLog() {
+                const topic = document.getElementById('wh-topic').value;
+                const detail = document.getElementById('wh-detail').value;
+                if (!topic) { alert('テーマが決まってないぞ。'); return; }
+
+                const newLog = Store.addWarehouseLog(topic, detail);
+
+                // Switch to detail view of new log
+                WarehouseView.mode = 'detail';
+                WarehouseView.selectedId = newLog.id;
+                App.route();
+
+                await this.generateWarehouseAiComment(newLog);
+            },
+
+            async retryWarehouseAi(id) {
+                const log = Store.state.warehouseLogs.find(l => l.id === id);
+                if (log) await this.generateWarehouseAiComment(log);
+            },
+
+            async generateWarehouseAiComment(log) {
+                document.getElementById('loading').classList.remove('hidden');
+                const prompt = `
+                    知識・思考のメモ:
+                    テーマ: ${log.topic}
+                    詳細: ${log.detail}
+
+                    指示:
+                    このメモに対して、陣内として一言コメントしろ。
+                    - 関連するビジネスの格言や、皮肉めいた洞察、あるいは「なるほどな」という納得感。
+                    - 短く鋭く。
+                `;
+                try {
+                    const comment = await GeminiService.generate(prompt);
+                    if (comment) {
+                        Store.updateWarehouseLog(log.id, comment);
+                        // Save to Google Drive
+                        const dateStr = new Date(log.date).toISOString().split('T')[0];
+                        const warehouseMd = `# 知識の倉庫 - ${log.topic}\n\n` +
+                            `## テーマ\n${log.topic}\n\n` +
+                            `## 詳細\n${log.detail}\n\n` +
+                            `## 陣内より\n${comment}\n`;
+                        DriveLogger.saveContent('warehouse', `${log.topic}_${dateStr}`, warehouseMd);
+                    } else {
+                        Store.updateWarehouseLog(log.id, "（陣内は無言を貫いている。API設定か残高を確認しろ）");
+                    }
+
+                    // Partial refresh if still on warehouse view
+                    if (location.hash.includes('warehouse')) {
+                        const detailEl = document.getElementById('warehouse-detail-container');
+                        if (detailEl) detailEl.innerHTML = WarehouseView.renderDetail();
+                        this.updateWarehouseList();
+                    }
+                } catch (e) {
+                    console.error('AI Comment Failed', e);
+                    Store.updateWarehouseLog(log.id, "（通信エラーだ。後で読み直せ）");
+                    if (location.hash.includes('warehouse')) {
+                        const detailEl = document.getElementById('warehouse-detail-container');
+                        if (detailEl) detailEl.innerHTML = WarehouseView.renderDetail();
+                        this.updateWarehouseList();
+                    }
+                } finally {
+                    document.getElementById('loading').classList.add('hidden');
+                }
+            },
+
+            // Morning Logic
+            morningNext() {
+                const plan = document.getElementById('inp-plan').value;
+                const spec = document.getElementById('inp-spec').value;
+                const net = document.getElementById('inp-net').value;
+                const raw = document.getElementById('inp-tasks').value;
+                Store.updateKpi('plan', plan); Store.updateKpi('spec', spec); Store.updateKpi('net', net);
+
+                // Parse tasks to array immediately for display
+                const taskList = raw.split('\n').filter(t => t.trim()).map((t, i) => ({ id: Date.now() + i, text: t, done: false }));
+                if (taskList.length) Store.update('tasks', taskList);
+
+                MorningView.step = 2;
+                this.route();
+            },
+
+            // Actions
+            toggleTask(id) {
+                const t = Store.state.tasks.find(x => x.id === id);
+                if (t) { t.done = !t.done; Store.update('tasks', Store.state.tasks); this.route(); }
+            },
+            updateCustomer(id, k, v) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === id);
+                if (c) { c[k] = v; Store.update('customers', list); }
+            },
+            addContact(cid) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === cid);
+                if (c) {
+                    if (!c.contacts) c.contacts = [];
+                    c.contacts.push({ name: '', role: '' });
+                    Store.update('customers', list);
+                    App.route();
+                }
+            },
+            updateContact(cid, idx, k, v) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === cid);
+                if (c && c.contacts[idx]) {
+                    c.contacts[idx][k] = v;
+                    Store.update('customers', list);
+                }
+            },
+            deleteContact(cid, idx) {
+                const list = [...Store.state.customers];
+                const c = list.find(x => x.id === cid);
+                if (c && confirm('削除スルカ？')) {
+                    c.contacts.splice(idx, 1);
+                    Store.update('customers', list);
+                    App.route();
+                }
+            },
+
+            // AI Functions
+            async runMorningRoutine() {
+                const theme = document.getElementById('inp-theme').value;
+                const win = document.getElementById('inp-win').value;
+                Store.updateKpi('theme', theme);
+                Store.updateKpi('winningCondition', win);
+
+                const tasks = Store.state.tasks;
+                if (!tasks.length) { alert('タスクがない。STEP1で入力しろ。'); return; }
+
+                document.getElementById('loading').classList.remove('hidden');
+
+                const taskTxt = tasks.map(t => t.text).join('\n');
+                const prompt = `あなたは「陣内」という皮肉屋だが熱い営業参謀です。
+
+ユーザーの今日のテーマ: ${theme}
+勝利条件: ${win}
+
+タスクリスト:
+${taskTxt}
+
+指示:
+1. テーマと勝利条件を踏まえて、背中を押す短い一言を「message」に書け（皮肉屋だが熱い口調）
+2. 各タスクを3つの具体的なマイクロステップに分割し、「analyzedTasks」配列に格納せよ
+
+**重要: 以下のJSON形式で出力すること。他のテキストは一切含めるな。**
+
+{
+  "message": "短い一言メッセージ",
+  "analyzedTasks": [
+    {
+      "originalText": "タスク1のテキスト",
+      "steps": ["ステップ1", "ステップ2", "ステップ3"]
+    }
+  ]
+}`;
+
+                try {
+                    const txt = await GeminiService.generate(prompt);
+
+                    if (!txt) return; // Error handled in service (alert shown)
+
+                    // Try to extract JSON more robustly
+                    let jsonText = txt.trim();
+                    // Remove markdown code blocks if present
+                    jsonText = jsonText.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+                    // Find JSON object
+                    const match = jsonText.match(/\{[\s\S]*\}/);
+                    if (!match) {
+                        console.error('AI response:', txt);
+                        throw new Error('JSON not found in response');
+                    }
+
+                    const json = JSON.parse(match[0]);
+
+                    // Merge microsteps
+                    const newTasks = tasks.map((t, i) => {
+                        const analysis = json.analyzedTasks[i] || {};
+                        return { ...t, microSteps: analysis.steps || [] };
+                    });
+
+                    // Update UI State
+                    Store.update('morningMessage', json.message);
+
+                    Store.saveDailyLog('morning', {
+                        theme,
+                        win,
+                        tasks: newTasks.map(t => t.text),
+                        message: json.message
+                    });
+
+                    // Save to Google Drive
+                    const morningMd = `# 朝の作戦 - ${new Date().toISOString().split('T')[0]}\n\n` +
+                        `## テーマ\n${theme}\n\n` +
+                        `## 勝利条件\n${win}\n\n` +
+                        `## タスク\n${newTasks.map(t => `- ${t.text}\n  - ${(t.microSteps || []).join('\n  - ')}`).join('\n')}\n\n` +
+                        `## 陣内より\n${json.message}\n`;
+                    DriveLogger.saveContent('morning', `朝の作戦_${new Date().toISOString().split('T')[0]}`, morningMd);
+
+                    MorningView.step = 1; // Reset
+                    location.hash = '#dashboard';
+                } catch (e) {
+                    console.error(e);
+                    alert('AIの機嫌が悪いようだ。タスクはそのままで進めるぞ。');
+                    MorningView.step = 1;
+                    location.hash = '#dashboard';
+                }
+                finally { document.getElementById('loading').classList.add('hidden'); }
+            },
+
+            async addActivity(cid) {
+                const note = document.getElementById('act-note').value;
+                if (!note) return;
+                const c = Store.state.customers.find(x => x.id === cid);
+
+                document.getElementById('loading').classList.remove('hidden');
+                const prompt = `
+                    商談報告:
+                    顧客: ${c.name}
+                    相手: ${document.getElementById('act-person').value || '不明'}
+                    内容: ${note}
+                    雑談: ${document.getElementById('act-smalltalk').value}
+                    フェーズ: ${document.getElementById('act-phase').value}
+                    
+                    指示:
+                    ・「陣内」として鋭く分析せよ。
+                    ・出力JSON: { "advice": { "analysis": "...", "nextMove": "...", "relationship": "..." }, "email": "..." }
+                `;
+
+                let advice = null;
+                try {
+                    const txt = await GeminiService.generate(prompt);
+                    const json = JSON.parse(txt.match(/\{.*\}/s)[0]);
+                    advice = json.advice;
+                    document.getElementById('email-content').value = json.email;
+                    document.getElementById('email-modal').showModal();
+                } catch (e) { console.error(e); }
+
+                c.history.push({
+                    date: document.getElementById('act-date').value,
+                    phase: document.getElementById('act-phase').value,
+                    projectName: document.getElementById('act-project').value,
+                    note: note,
+                    contactPerson: document.getElementById('act-person').value,
+                    smallTalk: document.getElementById('act-smalltalk').value,
+                    nextAction: document.getElementById('act-next-action').value,
+                    nextDate: document.getElementById('act-next-date').value,
+                    aiAdvice: advice
+                });
+                c.lastVisit = document.getElementById('act-date').value;
+                Store.update('customers', Store.state.customers);
+
+                document.getElementById('loading').classList.add('hidden');
+                this.route();
+            },
+
+            addEmotionItem(type) {
+                const inputId = type === 'positive' ? 'emotion-positive-input' : 'emotion-negative-input';
+                const listId = type === 'positive' ? 'emotion-positive-list' : 'emotion-negative-list';
+                const input = document.getElementById(inputId);
+                const val = input.value.trim();
+                if (!val) return;
+                const arr = type === 'positive' ? NightView.emotionPositive : NightView.emotionNegative;
+                arr.push(val);
+                input.value = '';
+                const color = type === 'positive' ? 'emerald' : 'amber';
+                const icon = type === 'positive' ? 'fa-face-smile' : 'fa-cloud';
+                const listEl = document.getElementById(listId);
+                const idx = arr.length - 1;
+                const item = document.createElement('div');
+                item.className = `flex items-center gap-2 bg-${color}-900/20 border border-${color}-800/30 px-3 py-2 text-sm text-stone-300`;
+                item.innerHTML = `<i class="fa-solid ${icon} text-${color}-500 text-xs"></i><span class="flex-1">${val}</span><button onclick="App.removeEmotionItem('${type}',${idx})" class="text-stone-600 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark text-xs"></i></button>`;
+                listEl.appendChild(item);
+            },
+
+            removeEmotionItem(type, idx) {
+                const arr = type === 'positive' ? NightView.emotionPositive : NightView.emotionNegative;
+                arr.splice(idx, 1);
+                // Re-render the list
+                const listId = type === 'positive' ? 'emotion-positive-list' : 'emotion-negative-list';
+                const color = type === 'positive' ? 'emerald' : 'amber';
+                const icon = type === 'positive' ? 'fa-face-smile' : 'fa-cloud';
+                const listEl = document.getElementById(listId);
+                listEl.innerHTML = arr.map((v, i) => `<div class="flex items-center gap-2 bg-${color}-900/20 border border-${color}-800/30 px-3 py-2 text-sm text-stone-300"><i class="fa-solid ${icon} text-${color}-500 text-xs"></i><span class="flex-1">${v}</span><button onclick="App.removeEmotionItem('${type}',${i})" class="text-stone-600 hover:text-red-400 transition-colors"><i class="fa-solid fa-xmark text-xs"></i></button></div>`).join('');
+            },
+
+            async finishDay() {
+                const report = document.getElementById('night-report-text').value;
+                if (!report) { alert('何も書いてないぞ。'); return; }
+                document.getElementById('loading').classList.remove('hidden');
+                try {
+                    const positives = NightView.emotionPositive;
+                    const negatives = NightView.emotionNegative;
+
+                    // 業務報告のAIコメント
+                    const txt = await GeminiService.generate(`完了リスト:\n${report}\n今日のテーマ:${Store.state.dailyKpi.theme}\n労え。`);
+
+                    // 感情へのAIコメント
+                    let emotionComment = '';
+                    if (positives.length > 0 || negatives.length > 0) {
+                        const emotionPrompt = `あなたは「人を褒めて成長させることが世界一上手い人」です。
+相手は今日一日頑張った営業マンです。以下の感情の記録を読んで、温かく、かつ本人の成長につながるコメントをしてください。
+
+ルール:
+- 嬉しかったことには、なぜそれが素晴らしいのか、本人の「どんな力」がそれを生んだのかを具体的に指摘して褒めてください
+- モヤッとしたことには、まず共感し、そこから学べること・次に活かせるヒントをポジティブに伝えてください
+- 説教や正論は禁止。相手が「明日もがんばろう」と思える言葉を選んでください
+- 全体で200〜300文字程度にまとめてください
+
+【嬉しかったこと】
+${positives.length > 0 ? positives.map((p, i) => `${i + 1}. ${p}`).join('\n') : '(なし)'}
+
+【モヤッとしたこと】
+${negatives.length > 0 ? negatives.map((n, i) => `${i + 1}. ${n}`).join('\n') : '(なし)'}`;
+                        emotionComment = await GeminiService.generate(emotionPrompt);
+                    }
+
+                    Store.saveDailyLog('night', {
+                        report,
+                        aiAdvice: txt,
+                        emotionPositive: positives,
+                        emotionNegative: negatives,
+                        emotionComment,
+                        timestamp: new Date().toLocaleTimeString()
+                    });
+
+                    // Save to Google Drive
+                    const today = new Date().toISOString().split('T')[0];
+                    const emotionMd = (positives.length > 0 || negatives.length > 0) ?
+                        `## 今日の感情\n### 嬉しかったこと\n${positives.map(p => `- ${p}`).join('\n') || '(なし)'}\n\n### モヤッとしたこと\n${negatives.map(n => `- ${n}`).join('\n') || '(なし)'}\n\n### コメント\n${emotionComment}\n\n` : '';
+                    const nightMd = `# 夜の報告 - ${today}\n\n` +
+                        `## 今日のテーマ\n${Store.state.dailyKpi.theme || '(未設定)'}\n\n` +
+                        `## 完了リスト\n${report}\n\n` +
+                        emotionMd +
+                        `## 陣内より\n${txt}\n`;
+                    DriveLogger.saveContent('night', `夜の報告_${today}`, nightMd);
+
+                    NightView.isReflecting = true;
+                    NightView.lastAdvice = txt;
+                    NightView.lastEmotionComment = emotionComment;
+                    this.route();
+                } catch (e) { alert('お疲れ。'); }
+                finally { document.getElementById('loading').classList.add('hidden'); }
+            },
+
+            commitTomorrowStrategy() {
+                const theme = document.getElementById('next-theme').value;
+                const win = document.getElementById('next-win').value;
+
+                if (theme) Store.updateKpi('theme', theme);
+                if (win) Store.updateKpi('winningCondition', win);
+
+                // Reset NightView state
+                NightView.isReflecting = false;
+                NightView.lastAdvice = '';
+                NightView.lastEmotionComment = '';
+                NightView.emotionPositive = [];
+                NightView.emotionNegative = [];
+
+                alert('明日の戦線を確認した。ゆっくり休め。');
+                location.hash = '#dashboard';
+            },
+
+            startVoice(id) {
+                if (!('webkitSpeechRecognition' in window)) { alert('Chrome推奨だ。'); return; }
+                const r = new webkitSpeechRecognition();
+                r.lang = 'ja-JP';
+                r.onresult = e => { const el = document.getElementById(id); el.value = (el.value + ' ' + e.results[0][0].transcript).trim(); };
+                r.start();
+            },
+
+            // Calendar Handlers
+            changeCalendarMonth(delta) {
+                NightView.viewMonth += delta;
+                const d = new Date(NightView.viewYear, NightView.viewMonth);
+                NightView.viewYear = d.getFullYear();
+                NightView.viewMonth = d.getMonth();
+                this.route();
+            },
+            selectLogDate(date) {
+                NightView.selectedDate = date;
+                this.route();
+            },
+
+            // Export Logic
+            exportAllData() {
+                const data = JSON.stringify(Store.state, null, 2);
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `SalesAtelierPro_Export_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                alert('データをJSONとして書き出した。');
+            },
+
+            // --- 伝説の営業マン相談機能 ---
+            async askLegend() {
+                const textarea = document.getElementById('legends-question');
+                const question = textarea?.value?.trim();
+                if (!question) return;
+
+                const legendId = LegendsView.selectedLegend;
+                const legend = LEGENDS[legendId];
+                if (!legend) return;
+
+                const s = Store.state.userSettings;
+                if (!s.apiKey) {
+                    alert('APIキーがないぞ。設定画面から入れろ。');
+                    return;
+                }
+
+                // ユーザーの質問を追加
+                LegendsView.answers.push({ role: 'user', content: question });
+                LegendsView.question = '';
+                LegendsView.isAsking = true;
+                this.route();
+
+                // スクロールを下へ
+                setTimeout(() => {
+                    const chat = document.getElementById('legends-chat');
+                    if (chat) chat.scrollTop = chat.scrollHeight;
+                }, 100);
+
+                try {
+                    // 会話履歴を構築
+                    const history = LegendsView.answers.slice(0, -1).map(a => {
+                        return a.role === 'user'
+                            ? `ユーザー: ${a.content}`
+                            : `${legend.name}: ${a.content}`;
+                    }).join('\n\n');
+
+                    const prompt = `${legend.prompt}
+
+ユーザーは「${s.userName}」という建築営業マンだ。
+
+${history ? `【これまでの会話】\n${history}\n\n` : ''}
+【今回の相談】
+${question}
+
+上記の相談に対して、${legend.name}として回答しろ。
+キャラクターの口調と視点を維持し、具体的かつ実践的なアドバイスを心がけろ。`;
+
+                    const result = await GeminiService.generate(prompt);
+
+                    if (result) {
+                        LegendsView.answers.push({ role: 'assistant', content: result });
+                        // 相談履歴を保存
+                        Store.saveLegendConsultation(legendId, legend.name, question, result);
+                    } else {
+                        LegendsView.answers.push({ role: 'assistant', content: '...（通信エラーだ。もう一度試してくれ）' });
+                    }
+                } catch (e) {
+                    console.error('Legend advice failed:', e);
+                    LegendsView.answers.push({ role: 'assistant', content: '...（何かがおかしい。設定を確認してくれ）' });
+                } finally {
+                    LegendsView.isAsking = false;
+                    this.route();
+
+                    // スクロールを下へ
+                    setTimeout(() => {
+                        const chat = document.getElementById('legends-chat');
+                        if (chat) chat.scrollTop = chat.scrollHeight;
+                    }, 100);
+                }
+            },
+
+            saveAsFamousQuote(answerIndex) {
+                const legend = LEGENDS[LegendsView.selectedLegend];
+                const answer = LegendsView.answers[answerIndex];
+                if (!answer || answer.role !== 'assistant') return;
+
+                // 前の質問を探す
+                let question = '';
+                for (let i = answerIndex - 1; i >= 0; i--) {
+                    if (LegendsView.answers[i].role === 'user') {
+                        question = LegendsView.answers[i].content;
+                        break;
+                    }
+                }
+
+                if (confirm('この回答を名言コレクションに保存しますか？')) {
+                    Store.saveFamousQuote(legend.id, legend.name, question, answer.content, answer.content);
+                    alert('名言を保存した！');
+                }
+            }
+        };
+
+        const SettingsModal = {
+            render() {
+                return `
+                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50" onclick="if(event.target===this) App.closeModal()">
+                        <div class="bg-white p-8 w-96 shadow-2xl border-t-4 border-stone-800 animate-fade-in relative">
+                             <button onclick="App.closeModal()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                            <h2 class="font-bold text-lg mb-6 serif">システム設定</h2>
+                            <label class="block mb-4">
+                                <span class="text-xs font-bold text-stone-400">GEMINI API KEY</span>
+                                <input type="password" id="set-key" class="w-full border-b border-stone-300 py-1 outline-none text-sm font-mono" value="${Store.state.userSettings.apiKey}">
+                            </label>
+                            <label class="block mb-4">
+                                <span class="text-xs font-bold text-stone-400">ユーザー名</span>
+                                <input type="text" id="set-name" class="w-full border-b border-stone-300 py-1 outline-none text-sm" value="${Store.state.userSettings.userName}">
+                            </label>
+                            <div class="grid grid-cols-2 gap-4 mb-8">
+                                <div>
+                                    <span class="text-xs font-bold text-stone-400">AIモデル名</span>
+                                    <input type="text" id="set-model" class="w-full border-b border-stone-300 py-1 outline-none text-sm font-mono" value="${Store.state.userSettings.aiModel || 'gemini-1.5-flash'}">
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold text-stone-400">API Ver</span>
+                                    <select id="set-ver" class="w-full border-b border-stone-300 py-1 outline-none text-sm">
+                                        <option value="v1" ${Store.state.userSettings.apiVersion === 'v1' ? 'selected' : ''}>v1</option>
+                                        <option value="v1beta" ${Store.state.userSettings.apiVersion === 'v1beta' ? 'selected' : ''}>v1beta</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-6 p-3 bg-stone-50 border border-stone-200 text-[10px] text-stone-500 rounded-sm">
+                                <div id="test-result" class="mb-2 italic">接続テスト未実行</div>
+                                <div class="flex justify-between items-center">
+                                    <button onclick="App.testAiConnection()" class="text-indigo-600 font-bold hover:underline">
+                                        <i class="fa-solid fa-vial mr-1"></i>接続テストを実行
+                                    </button>
+                                    <button onclick="App.exportAllData()" class="text-orange-600 font-bold hover:underline">
+                                        <i class="fa-solid fa-file-export mr-1"></i>JSON出力
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="mb-8 p-4 border border-stone-100 bg-stone-50/50 rounded-sm">
+                                <h3 class="text-[10px] font-bold text-stone-400 uppercase mb-3"><i class="fa-solid fa-paper-plane mr-1"></i>外部共有・特使 (Share App)</h3>
+                                <button onclick="location.href='share.html'" class="w-full bg-stone-100 border-2 border-stone-200 py-2 text-xs font-bold text-stone-700 hover:bg-orange-50 hover:border-orange-200 transition-all flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-up-right-from-square text-[10px]"></i> 共有ビューアを起動
+                                </button>
+                                <p class="text-[9px] text-stone-400 mt-2 text-center">OSの共有機能を使用して、SNSやメモ帳へ送出する。</p>
+                            </div>
+                            <button onclick="Store.update('userSettings', {apiKey: document.getElementById('set-key').value, userName: document.getElementById('set-name').value, aiModel: document.getElementById('set-model').value, apiVersion: document.getElementById('set-ver').value}); App.closeModal(); alert('保存した。')" class="w-full bg-stone-900 text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-orange-600 transition-colors">
+                                保存
+                            </button>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        // Add to App object
+        App.testAiConnection = async function () {
+            const btn = event.target.closest('button');
+            const resEl = document.getElementById('test-result');
+            btn.disabled = true;
+            resEl.textContent = 'テスト中...';
+
+            // Temporary update state from DOM to test current inputs
+            const original = Store.state.userSettings;
+            Store.state.userSettings = {
+                apiKey: document.getElementById('set-key').value,
+                userName: document.getElementById('set-name').value,
+                aiModel: document.getElementById('set-model').value,
+                apiVersion: document.getElementById('set-ver').value
+            };
+
+            const result = await GeminiService.testConnection();
+            resEl.textContent = result.message;
+            resEl.className = result.success ? 'mb-2 text-green-600 font-bold' : 'mb-2 text-red-600 font-bold';
+
+            Store.state.userSettings = original; // Revert until saved
+            btn.disabled = false;
+        };
+
+        window.onload = () => App.init();
+    </script>
+</body>
+
+</html>
