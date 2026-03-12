@@ -141,6 +141,69 @@
                     <i class="fa-solid fa-users w-5 text-center text-indigo-400"></i> 伝説の相談室
                 </a>
             </nav>
+
+            <!-- 営業マンLv & バッジ -->
+            <div class="mt-auto px-4 py-4 border-t border-stone-800">
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-stone-400 text-xs uppercase tracking-widest">営業ランク</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-stone-100 font-bold text-xl">_LEVEL_</span>
+                            <span class="text-xs text-stone-500">Lv</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-stone-800 h-2 rounded-full overflow-hidden">
+                        <div class="bg-orange-500 h-full" id="level-bar"></div>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-stone-500">
+                        <span>次Lvまで</span>
+                        <span id="next-exp">_EXP_</span>
+                    </div>
+                </div>
+                <div id="streak-display" class="hidden">
+                    <div class="flex items-center gap-2 text-amber-400">
+                        <i class="fa-solid fa-fire"></i>
+                        <span class="text-xs">_日連続記録！</span>
+                    </div>
+                </div>
+                <div id="badges-display" class="border-t border-stone-700 pt-4 mt-2 hidden">
+                    <div class="text-[10px] text-stone-400 uppercase tracking-widest mb-3">実績バッジ</div>
+                    <div class="flex flex-wrap gap-2" id="badges-list"></div>
+                </div>
+
+                <script>
+                    setTimeout(() => {
+                        const level = Store.state.salesLevel?.level || 1;
+                        const exp = Store.state.salesLevel?.exp || 0;
+                        const nextExp = 100 - (exp % 100);
+                        const levelBar = document.querySelector('#level-bar > div');
+                        const nextExpEl = document.querySelector('#next-exp');
+                        const streakDisplay = document.querySelector('#streak-display');
+                        const badgesDisplay = document.querySelector('#badges-display');
+                        const badgesList = document.querySelector('#badges-list');
+
+                        if (levelBar) levelBar.style.width = (exp % 100) + '%';
+                        if (nextExpEl) nextExpEl.textContent = nextExp + 'exp';
+
+                        document.querySelectorAll('#streak-display, #badges-display').forEach(el => el.classList.add('hidden'));
+                        if (Store.state.salesLevel?.streak > 0 && streakDisplay) {
+                            streakDisplay.classList.remove('hidden');
+                            const streakText = streakDisplay.querySelector('span:last-child');
+                            if (streakText) streakText.textContent = Store.state.salesLevel.streak + '日連続記録！';
+                        }
+                        if (Store.state.badges?.length > 0 && badgesDisplay) {
+                            badgesDisplay.classList.remove('hidden');
+                            if (badgesList) {
+                                badgesList.innerHTML = Store.state.badges.map(b => {
+                                    return '<div class="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded flex items-center gap-1" title="獲得日: ' + new Date(b.earnedAt).toLocaleDateString() + '"><i class="fa-solid fa-medal text-amber-600"></i> ' + b.name + '</div>';
+                                }).join('');
+                            }
+                        }
+                    }, 50);
+                </script>
+                    </div>
+                ` : ''}
+            </div>
         </div>
 
         <div class="p-4 border-t border-stone-800">
@@ -2311,6 +2374,10 @@ ${taskTxt}
                 c.lastVisit = document.getElementById('act-date').value;
                 Store.update('customers', Store.state.customers);
 
+                // 経験値加算・バッジチェック
+                Store.addExp(10);
+                Store.checkBadges();
+
                 document.getElementById('loading').classList.add('hidden');
                 this.route();
             },
@@ -2384,6 +2451,17 @@ ${negatives.length > 0 ? negatives.map((n, i) => `${i + 1}. ${n}`).join('\n') : 
                         emotionComment,
                         timestamp: new Date().toLocaleTimeString()
                     });
+
+                    // 経験値を加算
+                    Store.addExp(10);
+
+                    // ストリークを更新
+                    const level = Store.state.salesLevel;
+                    level.streak = (level?.streak || 0) + 1;
+                    Store.update('salesLevel', level);
+
+                    // バッジチェック
+                    Store.checkBadges();
 
                     // Save to Google Drive
                     const today = new Date().toISOString().split('T')[0];
