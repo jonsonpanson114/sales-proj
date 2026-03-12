@@ -239,6 +239,9 @@
                 userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-1.5-flash', apiVersion: 'v1beta' },
                 dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
                 tasks: [], customers: [], dailyLogs: [], warehouseLogs: [], morningMessage: '',
+                legendConsultations: [], // 相談履歴保存用
+                salesLevel: { exp: 0, level: 1, streak: 0 }, // 営業マンLv・ストリーク
+                badges: [], // 実績バッジ
             },
             init() {
                 try {
@@ -268,6 +271,9 @@
                         }
                         if (!parsed.dailyLogs) parsed.dailyLogs = [];
                         if (!parsed.warehouseLogs) parsed.warehouseLogs = [];
+                        if (!parsed.legendConsultations) parsed.legendConsultations = [];
+                        if (!parsed.salesLevel) parsed.salesLevel = { exp: 0, level: 1, streak: 0 };
+                        if (!parsed.badges) parsed.badges = [];
                         this.state = { ...this.state, ...parsed };
                     }
                 } catch (e) {
@@ -315,6 +321,59 @@
             updateWarehouseLog(id, aiComment) {
                 const logs = this.state.warehouseLogs.map(l => l.id === id ? { ...l, aiComment } : l);
                 this.update('warehouseLogs', logs);
+            },
+            saveLegendConsultation(legendId, legendName, question, answer) {
+                const logs = [...this.state.legendConsultations];
+                const newLog = {
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    legendId,
+                    legendName,
+                    question,
+                    answer,
+                    timestamp: new Date().toLocaleString()
+                };
+                logs.unshift(newLog);
+                this.update('legendConsultations', logs);
+                return newLog;
+            },
+            // 経験値・Lv関連
+            addExp(amount) {
+                const level = this.state.salesLevel;
+                level.exp = (level.exp || 0) + amount;
+                level.level = Math.floor(level.exp / 100) + 1;
+                this.update('salesLevel', level);
+                // Lv上昇チェック
+                if (level.exp % 100 < amount && level.exp >= 100) {
+                    alert(`Lv上昇！Lv${level.level}になった！`);
+                }
+            },
+            // バッジチェック
+            checkBadges() {
+                const earned = [];
+                const newBadges = [];
+                const current = this.state.badges;
+
+                // バッジ定義
+                const badgeDefinitions = [
+                    { id: 'first_deal', name: '初成約', condition: () => this.state.customers.some(c => (c.history || []).some(h => h.phase === '引渡')) },
+                    { id: '100_visits', name: '100回訪問', condition: () => this.state.customers.reduce((sum, c) => sum + (c.history?.length || 0), 0) >= 100 },
+                    { id: 'streak_7', name: '連続7日', condition: () => this.state.salesLevel.streak >= 7 },
+                    { id: 'card_scan', name: '名刺スキャナー', condition: () => this.state.customers.some(c => c.fromCardScan) },
+                    { id: 'legend_talk', name: '伝説との対話', condition: () => this.state.legendConsultations.length >= 5 },
+                ];
+
+                badgeDefinitions.forEach(badge => {
+                    if (!current.find(cb => cb.id === badge.id) && badge.condition()) {
+                        newBadges.push({ ...badge, earnedAt: new Date().toISOString() });
+                        earned.push(badge);
+                    }
+                });
+
+                if (newBadges.length > 0) {
+                    this.update('badges', [...current, ...newBadges]);
+                    newBadges.forEach(b => alert(`バッジGET！「${b.name}」`));
+                }
             },
             updateHeader() {
                 const fmt = n => n ? '¥' + Number(n).toLocaleString() : '---';
@@ -572,6 +631,16 @@
                     <div class="p-8 grid grid-cols-12 gap-6 pb-12 animate-fade-in">
                         <!-- Left: Message & Strategy -->
                         <div class="col-span-12 lg:col-span-8 space-y-6">
+                            <!-- 今日の意識ポイント -->
+                            <div class="bg-gradient-to-br from-orange-50 to-pink-50 p-6 shadow-sm border border-orange-200 rounded-sm relative overflow-hidden">
+                                <div class="absolute right-0 top-0 p-4 opacity-10 text-6xl text-orange-400"><i class="fa-solid fa-lightbulb"></i></div>
+                                <h2 class="text-orange-700 text-xs font-bold uppercase tracking-widest mb-2">今日の意識ポイント</h2>
+                                <p class="text-sm font-bold text-orange-800 mb-2">固定Tips</p>
+                                <div class="bg-white/60 p-3 rounded text-orange-900 text-sm mb-3">${DashboardView.getConsciousnessTip()}</div>
+                                <p class="text-xs font-bold text-orange-700 mb-2 mt-4">AI学習</p>
+                                <div class="bg-orange-100 p-3 rounded text-orange-800 text-sm">${DashboardView.getPersonalTip()}</div>
+                            </div>
+
                             <div class="bg-stone-50 p-6 shadow-sm border border-stone-200 rounded-sm relative overflow-hidden">
                                 <div class="absolute right-0 top-0 p-4 opacity-10 text-6xl text-stone-900"><i class="fa-solid fa-quote-right"></i></div>
                                 <h2 class="text-stone-400 text-xs font-bold uppercase tracking-widest mb-2">陣内の檄</h2>
@@ -620,6 +689,44 @@
                         </div>
                     </div>
                 `;
+            },
+
+            // 今日の意識ポイント - 固定Tipsローテーション
+            getConsciousnessTip() {
+                const tips = [
+                    '名前を3回呼ぶことで信頼UP',
+                    '笑顔で第一印象を決める',
+                    '相手の話を6割聴く、4割話す',
+                    '共感話題（天気・スポーツ・休日）を一つ準備',
+                    '名刺を受け取ったら翌日にメール送る',
+                    '終わったら「また相談させてくさい」を必ず言う',
+                    '相手の名前をメモに控えて次回に使う',
+                    '提案書はボールペンで手書きもOK',
+                    '資料を事前に配っておく'
+                ];
+                const today = new Date();
+                const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 1)) / (1000 * 60 * 60 * 24));
+                return tips[dayOfYear % tips.length];
+            },
+
+            // 個人用Tips - 過去の失敗から学習
+            getPersonalTip() {
+                const logs = Store.state.legendConsultations || [];
+                if (logs.length === 0) return 'まだ相談履歴がない。まずは相談してみてくれ。';
+                const recentLogs = logs.slice(-3);
+                const nightLogs = Store.state.dailyLogs || [];
+                const recentEmotions = nightLogs.slice(-7).filter(l => l.night && (l.night.emotionPositive?.length || l.night.emotionNegative?.length));
+                if (recentEmotions.length === 0) return '最近の活動が多いな。まずは今日の感情を記録してみてくれ。';
+                const patterns = {
+                    '相手の反応が薄い': 'もやかく話題を準備しているか？相手の関心を探してくれ。',
+                    '資料を持っていかない': '次回は必ず資料を持参。手渡しではなく、見るものを作れ。',
+                    'クロージングが遅い': '「いつか連絡しろ」ではなく「明日もまた連絡させます」を言う。',
+                    '価格の話ば': '相手が何を求めているか？利益よりも価値を説けろ。',
+                    'プライドが読めない': '相手の組織や状況をもっと理解しよう。'
+                };
+                const date = new Date();
+                const index = Math.floor(date / (1000 * 60 * 60 * 24)) % Object.keys(patterns).length;
+                return `「${Object.keys(patterns)[index]}」：${patterns[Object.keys(patterns)[index]]}`;
             }
         };
 
@@ -698,55 +805,46 @@
         }
 
         const SfaListView = {
+            activeCategory: '主要顧客',
             render() {
                 const s = Store.state;
                 const term = (window.searchTerm || '').toLowerCase();
-                const list = s.customers.filter(c => c.name.toLowerCase().includes(term));
-
-                const catColors = { '主要顧客': 'bg-indigo-100 text-indigo-800', '中堅顧客': 'bg-stone-200 text-stone-700', '新規・休眠': 'bg-orange-100 text-orange-800', '施主・役所': 'bg-teal-100 text-teal-800' };
+                const catColors = { '主要顧客': 'bg-indigo-100 text-indigo-800 border-indigo-400', '中堅顧客': 'bg-stone-200 text-stone-700 border-stone-400', '新規・休眠': 'bg-orange-100 text-orange-800 border-orange-400', '施主・役所': 'bg-teal-100 text-teal-800 border-teal-400' };
+                const catActiveColors = { '主要顧客': 'bg-indigo-600 text-white', '中堅顧客': 'bg-stone-700 text-white', '新規・休眠': 'bg-orange-600 text-white', '施主・役所': 'bg-teal-600 text-white' };
                 const catIcons = { '主要顧客': 'fa-star', '中堅顧客': 'fa-building', '新規・休眠': 'fa-seedling', '施主・役所': 'fa-landmark' };
                 const catOrder = ['主要顧客', '中堅顧客', '新規・休眠', '施主・役所'];
 
-                // Group customers by category
-                const grouped = {};
-                catOrder.forEach(cat => grouped[cat] = []);
-                list.forEach(c => {
-                    const cat = c.category || '中堅顧客';
-                    if (!grouped[cat]) grouped[cat] = [];
-                    grouped[cat].push(c);
-                });
+                // Count per category (before search filter)
+                const counts = {};
+                catOrder.forEach(cat => counts[cat] = 0);
+                s.customers.forEach(c => { const cat = c.category || '中堅顧客'; counts[cat] = (counts[cat] || 0) + 1; });
 
-                const sections = catOrder.map(cat => {
-                    const items = grouped[cat];
-                    if (items.length === 0) return '';
-                    const rows = items.map(c => {
-                        const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
-                        return `
-                        <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
-                            <td class="py-4 px-4 font-bold text-stone-800 text-base">${c.name}</td>
-                            <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
-                            <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
-                            <td class="py-4 px-4 text-right">
-                                <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
-                            </td>
-                        </tr>`;
-                    }).join('');
+                // Filter by active category + search
+                const activeCat = this.activeCategory;
+                const list = s.customers.filter(c => (c.category || '中堅顧客') === activeCat && c.name.toLowerCase().includes(term));
+
+                const rows = list.map(c => {
+                    const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
                     return `
-                    <div class="mb-6">
-                        <div class="flex items-center gap-3 px-4 py-3 bg-stone-50 border-b border-stone-200 sticky top-0 z-10">
-                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm ${catColors[cat]}">
-                                <i class="fa-solid ${catIcons[cat]}"></i>
-                            </span>
-                            <h3 class="font-bold text-stone-700 text-sm">${cat}</h3>
-                            <span class="text-xs text-stone-400">${items.length}社</span>
-                        </div>
-                        <table class="w-full text-left border-collapse">
-                            <tbody class="divide-y divide-stone-100">${rows}</tbody>
-                        </table>
-                    </div>`;
+                    <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
+                        <td class="py-4 px-4 font-bold text-stone-800 text-base">${c.name}</td>
+                        <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
+                        <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
+                        <td class="py-4 px-4 text-right">
+                            <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
+                        </td>
+                    </tr>`;
                 }).join('');
 
-                const hasData = list.length > 0;
+                const tabs = catOrder.map(cat => {
+                    const isActive = cat === activeCat;
+                    return `<button onclick="SfaListView.activeCategory='${cat}'; App.route()"
+                        class="flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all border-b-2 ${isActive ? catActiveColors[cat] + ' border-transparent shadow-sm' : 'bg-white text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-700'}">
+                        <i class="fa-solid ${catIcons[cat]}"></i>
+                        <span>${cat}</span>
+                        <span class="text-[10px] ${isActive ? 'bg-white/20' : 'bg-stone-100'} px-1.5 py-0.5 rounded-full">${counts[cat]}</span>
+                    </button>`;
+                }).join('');
 
                 return `
                     <div class="h-full flex flex-col animate-fade-in p-8">
@@ -763,17 +861,31 @@
                         </div>
 
                         <div class="bg-white rounded-sm shadow-sm border border-stone-200 flex flex-col flex-1 overflow-hidden">
+                            <!-- Category Tabs -->
+                            <div class="flex border-b border-stone-200">
+                                ${tabs}
+                            </div>
                             <div class="p-4 border-b border-stone-200 bg-stone-50">
                                 <div class="relative max-w-sm">
                                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400"></i>
                                     <input type="text" class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 focus:outline-none focus:border-orange-500 text-sm transition-colors"
-                                        placeholder="会社名・担当者名で検索..."
+                                        placeholder="${activeCat}内を検索..."
                                         value="${window.searchTerm || ''}"
                                         oninput="window.searchTerm=this.value; App.route()">
                                 </div>
                             </div>
                             <div class="overflow-y-auto flex-1">
-                                ${hasData ? sections : '<div class="p-8 text-center text-stone-400">データなし</div>'}
+                                <table class="w-full text-left border-collapse">
+                                    <thead class="bg-stone-100 text-stone-500 text-xs uppercase sticky top-0 shadow-sm z-10">
+                                        <tr>
+                                            <th class="py-3 px-4 font-bold w-1/2">会社名</th>
+                                            <th class="py-3 px-4 font-bold w-1/4">担当者</th>
+                                            <th class="py-3 px-4 font-bold">最終訪問</th>
+                                            <th class="py-3 px-4"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-stone-100">${rows || '<tr><td colspan="4" class="p-8 text-center text-stone-400">このカテゴリにはまだ顧客がいません</td></tr>'}</tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -787,21 +899,54 @@
                 const c = Store.state.customers.find(x => x.id == id);
                 if (!c) return '<div class="p-8">見つからない</div>';
 
+                const phaseColors = { '基本設計': 'bg-sky-100 text-sky-700', '実施設計': 'bg-blue-100 text-blue-700', '積算': 'bg-violet-100 text-violet-700', '着工': 'bg-emerald-100 text-emerald-700', '引渡': 'bg-amber-100 text-amber-700' };
                 const history = (c.history || []).slice().reverse().map(h => `
-                    <div class="flex gap-4 mb-8 group relative">
-                        <div class="w-24 text-right pt-2 shrink-0 border-r-2 border-stone-200 pr-4 relative">
-                            <div class="absolute right-[-5px] top-[14px] w-2 h-2 rounded-full bg-stone-400 group-hover:bg-orange-600 transition-colors"></div>
-                            <div class="text-xs font-bold font-mono text-stone-500">${h.date}</div>
-                            <div class="text-[10px] text-stone-400 mt-1 font-bold bg-stone-100 inline-block px-1">${h.phase}</div>
-                        </div>
-                        <div class="flex-1 pt-1">
-                             <div class="text-[10px] text-stone-400 font-bold mb-1"><i class="fa-solid fa-user-tag mr-1"></i>${h.contactPerson || '相手不明'}</div>
-                            <div class="text-sm font-bold text-stone-800 mb-2">${h.projectName}</div>
-                            <div class="bg-white p-4 border border-stone-200 shadow-sm mb-2 hover:shadow-md transition-shadow">
-                                <div class="text-sm text-stone-700 whitespace-pre-wrap leading-relaxed">${h.note}</div>
+                    <div class="mb-6 group">
+                        <div class="bg-white border border-stone-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                            <!-- Header -->
+                            <div class="flex items-center gap-3 px-4 py-3 bg-stone-50 border-b border-stone-200">
+                                <span class="text-xs font-bold font-mono text-stone-500"><i class="fa-regular fa-calendar mr-1"></i>${h.date}</span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${phaseColors[h.phase] || 'bg-stone-100 text-stone-600'}">${h.phase}</span>
+                                <span class="text-[10px] text-stone-400 font-bold ml-auto"><i class="fa-solid fa-user-tag mr-1"></i>${h.contactPerson || '相手不明'}</span>
                             </div>
-                            ${h.smallTalk ? `<div class="bg-yellow-50 p-3 border border-yellow-200 text-sm text-stone-600 mb-2 italic"><i class="fa-solid fa-mug-hot text-yellow-500 mr-2"></i>"${h.smallTalk}"</div>` : ''}
-                            ${h.aiAdvice ? `<div class="bg-stone-800 p-4 text-stone-300 text-xs leading-relaxed mt-2 border-l-4 border-orange-600 relative overflow-hidden"><div class="font-bold text-orange-500 mb-2 font-serif flex items-center justify-between"><span>陣内の助言</span><i class="fa-solid fa-user-secret opacity-20 text-2xl"></i></div><div class="grid grid-cols-2 gap-4"><div><span class="block text-stone-500 font-bold mb-1">分析</span>${h.aiAdvice.analysis}</div><div><span class="block text-stone-500 font-bold mb-1">次手</span>${h.aiAdvice.nextMove}</div><div class="col-span-2 border-t border-stone-700 pt-2"><span class="block text-stone-500 font-bold mb-1">関係</span>${h.aiAdvice.relationship}</div></div></div>` : ''}
+                            <!-- Body -->
+                            <div class="p-4 space-y-3">
+                                <div class="text-sm font-bold text-stone-800">${h.projectName}</div>
+                                <div class="text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">${h.note}</div>
+                                ${h.smallTalk ? `
+                                <div class="flex items-start gap-2 bg-yellow-50 p-3 border border-yellow-100 rounded-sm">
+                                    <i class="fa-solid fa-mug-hot text-yellow-500 mt-0.5"></i>
+                                    <span class="text-sm text-stone-600 italic">"${h.smallTalk}"</span>
+                                </div>` : ''}
+                                ${h.nextAction || h.nextDate ? `
+                                <div class="flex items-center gap-3 bg-indigo-50 px-3 py-2 border border-indigo-100 rounded-sm text-xs">
+                                    <i class="fa-solid fa-arrow-right text-indigo-400"></i>
+                                    ${h.nextAction ? `<span class="text-indigo-700 font-bold">${h.nextAction}</span>` : ''}
+                                    ${h.nextDate ? `<span class="text-indigo-400 ml-auto font-mono">${h.nextDate}</span>` : ''}
+                                </div>` : ''}
+                            </div>
+                            <!-- AI Advice -->
+                            ${h.aiAdvice ? `
+                            <div class="bg-stone-800 px-4 py-4 border-t-2 border-orange-600">
+                                <div class="flex items-center justify-between mb-3">
+                                    <span class="text-[10px] font-bold text-orange-500 uppercase tracking-widest">陣内の助言</span>
+                                    <i class="fa-solid fa-user-secret text-stone-700 text-lg"></i>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3 text-xs text-stone-300 leading-relaxed">
+                                    <div>
+                                        <span class="block text-stone-500 font-bold mb-1 text-[10px]">分析</span>
+                                        <span>${h.aiAdvice.analysis}</span>
+                                    </div>
+                                    <div>
+                                        <span class="block text-stone-500 font-bold mb-1 text-[10px]">次手</span>
+                                        <span>${h.aiAdvice.nextMove}</span>
+                                    </div>
+                                    <div class="col-span-2 border-t border-stone-700 pt-2">
+                                        <span class="block text-stone-500 font-bold mb-1 text-[10px]">関係性</span>
+                                        <span>${h.aiAdvice.relationship}</span>
+                                    </div>
+                                </div>
+                            </div>` : ''}
                         </div>
                     </div>
                 `).join('');
@@ -1132,7 +1277,22 @@
                     const projName = lastH?.projectName || '';
                     const nextDate = lastH?.nextDate || '';
                     const tooltipLines = [c.name, projName ? `📋 ${projName}` : '', nextDate ? `📅 ${nextDate}` : ''].filter(Boolean);
-                    return `<div onclick="location.hash='#sfa_detail?id=${c.id}'" class="absolute w-4 h-4 rounded-full bg-stone-800 border-2 border-white shadow-lg cursor-pointer hover:bg-orange-600 hover:scale-125 transition-all group" style="left:${x}%; top:${y}%; margin-left:-8px; margin-top:-8px;"><div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-xs px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 rounded shadow-lg pointer-events-none"><div class="font-bold">${c.name}</div>${projName ? `<div class="text-stone-400 mt-0.5">📋 ${projName}</div>` : ''}${nextDate ? `<div class="text-orange-400 mt-0.5">📅 ${nextDate}</div>` : ''}</div></div>`;
+                    const label = projName || c.name;
+                    return `<div onclick="location.hash='#sfa_detail?id=${c.id}'" class="absolute cursor-pointer hover:scale-110 transition-all group" style="left:${x}%; top:${y}%; transform: translate(-50%, -50%);">
+                        <div class="flex flex-col items-center">
+                            <div class="w-3 h-3 rounded-full bg-stone-800 border-2 border-white shadow-lg group-hover:bg-orange-600 transition-colors"></div>
+                            <div class="mt-1 text-[10px] font-bold text-stone-600 whitespace-nowrap leading-tight text-center group-hover:text-orange-600 transition-colors">
+                                <div>${c.name}</div>
+                                ${projName ? `<div class="text-[9px] font-normal text-stone-400">${projName}</div>` : ''}
+                                ${nextDate ? `<div class="text-[9px] font-normal text-orange-400">${nextDate}</div>` : ''}
+                            </div>
+                        </div>
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-stone-900 text-white text-xs px-3 py-2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20 rounded shadow-lg pointer-events-none">
+                            <div class="font-bold">${c.name}</div>
+                            ${projName ? `<div class="text-stone-400 mt-0.5">📋 ${projName}</div>` : ''}
+                            ${nextDate ? `<div class="text-orange-400 mt-0.5">📅 ${nextDate}</div>` : ''}
+                        </div>
+                    </div>`;
                 }).join('');
                 return `<div class="h-full flex flex-col animate-fade-in pb-12 p-8"><h2 class="text-2xl font-bold text-stone-800 serif mb-6">戦略地図</h2><div class="flex-1 bg-white border border-stone-200 shadow-sm relative rounded-sm overflow-hidden m-4" style="background-image: radial-gradient(#d6d3d1 1px, transparent 1px); background-size: 40px 40px;"><div class="absolute left-1/2 top-4 bottom-4 w-px bg-stone-400 border-l border-dashed border-stone-400"></div><div class="absolute top-1/2 left-4 right-4 h-px bg-stone-400 border-t border-dashed border-stone-400"></div><div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（大）</div><div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（小）</div><div class="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（高）</div><div class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（低）</div><div class="absolute inset-8">${dots}</div></div><p class="text-center text-stone-400 text-xs font-serif">"右上の客を狙え。そこが一番美味い。"</p></div>`;
             }
@@ -1231,40 +1391,93 @@
             question: '',
             answers: [],
             isAsking: false,
+            showHistory: false, // 履歴表示モード
+
+            renderHistory() {
+                const logs = Store.state.legendConsultations || [];
+                if (logs.length === 0) {
+                    return `
+                        <div class="text-center py-12 text-stone-400">
+                            <i class="fa-solid fa-clock-rotate-left text-4xl mb-4 opacity-30"></i>
+                            <p class="font-serif">まだ相談履歴はないよ。</p>
+                        </div>`;
+                }
+                return logs.map(log => {
+                    const legend = LEGENDS[log.legendId];
+                    const date = new Date(log.date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    return `
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-stone-200 mb-4 hover:shadow-md transition-shadow cursor-pointer" onclick="LegendsView.loadConsultation('${log.id}')">
+                            <div class="flex items-start gap-3">
+                                <div class="${legend.bgColor} w-10 h-10 rounded flex items-center justify-center text-white shrink-0">
+                                    <i class="fa-solid ${legend.icon}"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="text-xs font-bold text-stone-500">${date}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full ${legend.bgColor.replace('bg-', 'bg-')} text-white">${legend.name}</span>
+                                    </div>
+                                    <div class="text-sm font-bold text-stone-800 mb-1">${log.question}</div>
+                                    <div class="text-sm text-stone-600">${log.answer}</div>
+                                </div>
+                            </div>
+                        `;
+                }).join('');
+            },
+
+            loadConsultation(id) {
+                const log = Store.state.legendConsultations.find(l => l.id === id);
+                if (!log) return;
+                this.selectedLegend = log.legendId;
+                this.answers = [
+                    { role: 'user', content: log.question },
+                    { role: 'assistant', content: log.answer }
+                ];
+                this.showHistory = false;
+                App.route();
+            },
 
             render() {
                 const legends = Object.values(LEGENDS);
 
                 if (!this.selectedLegend) {
                     // キャラクター選択画面
+                    const content = this.showHistory ? this.renderHistory() : `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${legends.map(l => `
+                                <div onclick="LegendsView.selectLegend('${l.id}')"
+                                    class="group cursor-pointer ${l.bgColor} p-6 rounded-sm shadow-xl hover:scale-[1.02] transition-all border-l-4 ${l.borderColor} relative overflow-hidden">
+                                    <div class="absolute right-2 top-2 opacity-10 text-6xl text-white"><i class="fa-solid ${l.icon}"></i></div>
+                                    <div class="relative z-10">
+                                        <div class="text-${l.color}-400 text-xs font-bold uppercase tracking-widest mb-2">${l.title}</div>
+                                        <h3 class="text-2xl font-bold text-white serif mb-3">${l.name}</h3>
+                                        <p class="text-white/60 text-sm italic font-serif">${l.quote}</p>
+                                    </div>
+                                    <div class="absolute bottom-4 right-4 text-white/30 group-hover:text-white/60 transition-colors">
+                                        <i class="fa-solid fa-arrow-right"></i>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="mt-12 text-center">
+                            <p class="text-stone-400 text-xs font-serif italic">"${this.showHistory ? '師を選べ' : '相談履歴'}"道は一つではない。"</p>
+                        </div>
+                    `;
                     return `
                         <div class="h-full overflow-y-auto animate-fade-in">
                             <div class="max-w-4xl mx-auto p-8 pb-20">
-                                <div class="text-center mb-12">
-                                    <h2 class="text-3xl font-bold text-stone-800 serif mb-2">伝説の相談室</h2>
-                                    <p class="text-stone-500">営業の達人たちに相談できる。それぞれのスタイルは異なる。</p>
+                                <div class="flex justify-between items-center mb-8">
+                                    <div class="text-center flex-1">
+                                        <h2 class="text-3xl font-bold text-stone-800 serif mb-2">伝説の相談室</h2>
+                                        <p class="text-stone-500">営業の達人たちに相談できる。それぞれのスタイルは異なる。</p>
+                                    </div>
+                                    <button onclick="LegendsView.showHistory = !LegendsView.showHistory; App.route()"
+                                        class="px-4 py-2 bg-stone-100 text-stone-700 font-bold rounded hover:bg-stone-200 transition-colors flex items-center gap-2">
+                                        <i class="fa-solid fa-clock-rotate-left"></i>
+                                        ${this.showHistory ? 'キャラ選択' : '相談履歴'}
+                                        <span class="bg-stone-300 text-stone-600 text-xs px-2 py-0.5 rounded-full">${Store.state.legendConsultations.length}</span>
+                                    </button>
                                 </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    ${legends.map(l => `
-                                        <div onclick="LegendsView.selectLegend('${l.id}')"
-                                            class="group cursor-pointer ${l.bgColor} p-6 rounded-sm shadow-xl hover:scale-[1.02] transition-all border-l-4 ${l.borderColor} relative overflow-hidden">
-                                            <div class="absolute right-2 top-2 opacity-10 text-6xl text-white"><i class="fa-solid ${l.icon}"></i></div>
-                                            <div class="relative z-10">
-                                                <div class="text-${l.color}-400 text-xs font-bold uppercase tracking-widest mb-2">${l.title}</div>
-                                                <h3 class="text-2xl font-bold text-white serif mb-3">${l.name}</h3>
-                                                <p class="text-white/60 text-sm italic font-serif">${l.quote}</p>
-                                            </div>
-                                            <div class="absolute bottom-4 right-4 text-white/30 group-hover:text-white/60 transition-colors">
-                                                <i class="fa-solid fa-arrow-right"></i>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-
-                                <div class="mt-12 text-center">
-                                    <p class="text-stone-400 text-xs font-serif italic">"師を選べ。道は一つではない。"</p>
-                                </div>
+                                ${content}
                             </div>
                         </div>
                     `;
@@ -2294,6 +2507,8 @@ ${question}
 
                     if (result) {
                         LegendsView.answers.push({ role: 'assistant', content: result });
+                        // 相談履歴を保存
+                        Store.saveLegendConsultation(legendId, legend.name, question, result);
                     } else {
                         LegendsView.answers.push({ role: 'assistant', content: '...（通信エラーだ。もう一度試してくれ）' });
                     }
