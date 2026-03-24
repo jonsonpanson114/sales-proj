@@ -246,7 +246,7 @@
         // --- Store ---
         const Store = {
             state: {
-                userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-1.5-flash', apiVersion: 'v1beta' },
+                userSettings: { apiKey: '', userName: '係長', aiModel: 'gemini-3-flash-preview', apiVersion: 'v1beta' },
                 dailyKpi: { plan: 0, spec: 0, net: 0, winningCondition: '', theme: '' },
                 tasks: [], customers: [], dailyLogs: [], warehouseLogs: [], morningMessage: '',
                 legendConsultations: [], // 相談履歴保存用
@@ -273,8 +273,9 @@
                         }
                         // Fix invalid model names if present
                         if (parsed.userSettings) {
-                            if (parsed.userSettings.aiModel === 'gemini-3-flash-preview') {
-                                parsed.userSettings.aiModel = 'gemini-1.5-flash';
+                            const legacyModels = ['gemini-3-flash-preview', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.0-pro'];
+                            if (legacyModels.includes(parsed.userSettings.aiModel) || !parsed.userSettings.aiModel) {
+                                parsed.userSettings.aiModel = 'gemini-3-flash-preview';
                             }
                             if (!parsed.userSettings.apiVersion || parsed.userSettings.apiVersion === 'v1') {
                                 parsed.userSettings.apiVersion = 'v1beta';
@@ -426,8 +427,8 @@
             async generate(prompt) {
                 const s = Store.state.userSettings;
                 const key = s.apiKey;
-                const model = s.aiModel || 'gemini-1.5-flash';
-                const ver = s.apiVersion || 'v1';
+                const model = s.aiModel || 'gemini-3-flash-preview';
+                const ver = s.apiVersion || 'v1beta';
 
                 if (!key) { alert('APIキーがないぞ。設定画面から入れろ。'); return null; }
                 const sysPrompt = `
@@ -732,14 +733,13 @@
             getConsciousnessTip() {
                 const tips = [
                     '名前を3回呼ぶことで信頼UP',
-                    '笑顔で第一印象を決める',
-                    '相手の話を6割聴く、4割話す',
-                    '共感話題（天気・スポーツ・休日）を一つ準備',
-                    '名刺を受け取ったら翌日にメール送る',
-                    '終わったら「また相談させてくさい」を必ず言う',
-                    '相手の名前をメモに控えて次回に使う',
-                    '提案書はボールペンで手書きもOK',
-                    '資料を事前に配っておく'
+                    '搬入経路の確認は契約前に済ませろ',
+                    '「音漏れ」の懸念には遮音性能の数値を即答しろ',
+                    '図面の修正はスピードが命だ',
+                    '施工業者への連絡は現場に入る2日前が鉄則',
+                    '相手の色決めに迷ったら「飽きのこない白」をベースに提案',
+                    'レイアウト変更の可能性を先に打診しておけ',
+                    '提案書には納まりのディテール図を忍ばせろ'
                 ];
                 const today = new Date();
                 const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 1)) / (1000 * 60 * 60 * 24));
@@ -1262,7 +1262,7 @@
                                                 </div>
                                                 <textarea id="night-report-text"
                                                     class="w-full h-56 bg-transparent text-stone-200 text-lg leading-relaxed focus:outline-none resize-none font-serif placeholder-stone-700"
-                                                    placeholder="本日の記録と戦果を記せ..."></textarea>
+                                                    placeholder="本日の記録と戦果を記せ...">${s.tasks.filter(t => t.done).map(t => `・${t.text}`).join('\n')}</textarea>
 
                                                 <!-- 今日の感情セクション -->
                                                 <div class="mt-8 border-t border-stone-800 pt-8">
@@ -1368,7 +1368,7 @@
                     - 権威や形式ばったことは嫌い。
                     - しかし、仕事に関しては意外と核心をつく鋭いアドバイスをする。
                     - 敬語は使うな。少しぶっきらぼうでいい。
-                    - 建築営業のプロとしての視点を忘れるな。`
+                    - 間仕切り（パーティション）製造・販売企業の営業としての視点を忘れるな。`
             },
             kumagai: {
                 id: 'kumagai',
