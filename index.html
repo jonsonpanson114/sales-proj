@@ -253,6 +253,7 @@
                 salesLevel: { exp: 0, level: 1, streak: 0 }, // 営業マンLv・ストリーク
                 badges: [], // 実績バッジ
                 famousQuotes: [], // 名言コレクション
+                notificationSettings: { enabled: false, morningHour: 10, nightHour: 20, lastNotifiedDate: '' }, // 通知設定
             },
             init() {
                 try {
@@ -1413,7 +1414,7 @@
                 bgColor: 'bg-amber-900',
                 borderColor: 'border-amber-500',
                 quote: '"商売は人と人だ。信頼がなきゃ、何も始まらねえ。"',
-                prompt: `あなたは「町田のおやじ」という地元で50年商売を続けてきた不動産屋の親父だ。
+                prompt: `あなたは「町田のおやじ」という地元で50年商売を続けてきた建築・内装の老舗の親父だ。
                     - 義理人情を何より大切にする。
                     - 長期的な関係構築を重視し、目先の利益より信頼を優先。
                     - 「飲みニケーション」を信じている。
@@ -1989,12 +1990,79 @@
                 // Keyboard shortcut escape
                 window.onkeydown = (e) => { if (e.key === 'Escape') this.closeModal(); };
 
+                // 通知チェック: 1分ごとにチェック
+                setInterval(() => this.checkRoutineNotifications(), 60000);
+                // 初回チェック
+                setTimeout(() => this.checkRoutineNotifications(), 1000);
+
                 if (!location.hash) location.hash = '#dashboard';
                 else this.route();
             },
             openSettings() { document.getElementById('modal-root').innerHTML = SettingsModal.render(); },
             openNewCustomerModal() { document.getElementById('modal-root').innerHTML = NewCustomerModal.render(); },
             closeModal() { document.getElementById('modal-root').innerHTML = ''; },
+
+            // --- 通知機能 ---
+            sendNotification(title, body) {
+                if (Notification.permission !== 'granted') return;
+                new Notification(title, {
+                    body: body,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">🏢</text></svg>',
+                    tag: 'sales-atelier-pro'
+                });
+            },
+
+            requestNotificationPermission() {
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        alert('通知許可が付与されました。');
+                        document.getElementById('notify-enabled').checked = true;
+                        this.updateNotificationSetting();
+                    } else {
+                        alert('通知が拒否されました。ブラウザの設定から許可してください。');
+                    }
+                });
+            },
+
+            checkRoutineNotifications() {
+                const s = Store.state.notificationSettings;
+                if (!s.enabled) return;
+                if (Notification.permission !== 'granted') return;
+
+                const now = new Date();
+                const currentHour = now.getHours();
+                const today = now.toISOString().split('T')[0];
+
+                // 同日2回通知しない
+                if (s.lastNotifiedDate === today) return;
+
+                // 朝ルーチン通知
+                if (currentHour === s.morningHour) {
+                    const morningDone = Store.state.dailyKpi.winningCondition || Store.state.dailyKpi.theme;
+                    if (!morningDone) {
+                        this.sendNotification('朝の作戦会議', '朝のルーチンがまだ完了していません。今すぐ実行しましょう！');
+                        Store.update('notificationSettings', { ...s, lastNotifiedDate: today });
+                        return;
+                    }
+                }
+
+                // 夜ルーチン通知
+                if (currentHour === s.nightHour) {
+                    const todayLog = (Store.state.dailyLogs || []).find(l => l.date === today);
+                    if (!todayLog || !todayLog.night) {
+                        this.sendNotification('夕刻の総括', '夜のルーチンがまだ完了していません。今日の振り返りをしましょう！');
+                        Store.update('notificationSettings', { ...s, lastNotifiedDate: today });
+                        return;
+                    }
+                }
+            },
+
+            updateNotificationSetting() {
+                const enabled = document.getElementById('notify-enabled')?.checked ?? false;
+                const morningHour = parseInt(document.getElementById('notify-morning')?.value) || 10;
+                const nightHour = parseInt(document.getElementById('notify-night')?.value) || 20;
+                Store.update('notificationSettings', { enabled, morningHour, nightHour });
+            },
 
             // --- 名刺スキャン機能 ---
             cardStream: null,
@@ -2786,6 +2854,18 @@ ${question}
                                         <option value="v1" ${Store.state.userSettings.apiVersion === 'v1' ? 'selected' : ''}>v1</option>
                                         <option value="v1beta" ${Store.state.userSettings.apiVersion === 'v1beta' ? 'selected' : ''}>v1beta</option>
                                     </select>
+                                </div>
+                            </div>
+                            <div class="mb-4 p-3 bg-stone-50 rounded border border-stone-200">
+                                <h4 class="font-bold text-xs text-stone-700 mb-2"><i class="fa-solid fa-bell mr-1"></i>ブラウザ通知</h4>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <input type="checkbox" id="notify-enabled" ${Store.state.notificationSettings.enabled ? 'checked' : ''} onchange="App.updateNotificationSetting()">
+                                    <label for="notify-enabled" class="text-xs cursor-pointer">通知を有効にする</label>
+                                    <button onclick="App.requestNotificationPermission()" class="text-xs bg-stone-900 text-white px-2 py-1 rounded hover:bg-orange-600 transition-colors">許可を求める</button>
+                                </div>
+                                <div class="text-[10px] text-stone-500 flex items-center gap-3">
+                                    <span>朝ルーチン: <input type="number" id="notify-morning" value="${Store.state.notificationSettings.morningHour}" min="6" max="12" class="w-12 px-1 py-0.5 border border-stone-300 rounded text-center" onchange="App.updateNotificationSetting()">時</span>
+                                    <span>夜ルーチン: <input type="number" id="notify-night" value="${Store.state.notificationSettings.nightHour}" min="18" max="23" class="w-12 px-1 py-0.5 border border-stone-300 rounded text-center" onchange="App.updateNotificationSetting()">時</span>
                                 </div>
                             </div>
                             <div class="mb-6 p-3 bg-stone-50 border border-stone-200 text-[10px] text-stone-500 rounded-sm">
