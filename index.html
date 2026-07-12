@@ -261,8 +261,14 @@
                 notificationSettings: { enabled: false, morningHour: 10, nightHour: 20, lastNotifiedDate: '' }, // 通知設定
             },
             init() {
+                let s = null;
                 try {
-                    const s = localStorage.getItem(APP_KEY);
+                    s = localStorage.getItem(APP_KEY);
+                } catch (storageErr) {
+                    // サンドボックス等でストレージ自体が使えない環境。データ破損ではないのでアラートは出さない
+                    console.warn('Storage unavailable, running in-memory', storageErr);
+                }
+                try {
                     if (s) {
                         const parsed = JSON.parse(s);
                         // Data Migration for v2
@@ -297,13 +303,24 @@
                     }
                 } catch (e) {
                     console.error('Data Load Error', e);
-                    alert('保存データが破損していたため、初期化シタ。');
+                    // 上書きで消える前に元データを退避する(既存バックアップは残す)
+                    let backedUp = false;
+                    try {
+                        const bk = APP_KEY + '_backup';
+                        if (!localStorage.getItem(bk)) localStorage.setItem(bk, s);
+                        backedUp = true;
+                    } catch (_) { }
+                    alert('保存データの読み込みに失敗した。' + (backedUp ? `元データは「${APP_KEY}_backup」に退避してある。` : '') + '初期状態で起動する。');
                 }
                 this.refreshStreak(false);
                 try { this.updateHeader(); } catch (e) { }
             },
             save() {
-                localStorage.setItem(APP_KEY, JSON.stringify(this.state));
+                try {
+                    localStorage.setItem(APP_KEY, JSON.stringify(this.state));
+                } catch (e) {
+                    console.warn('Storage unavailable, state not persisted', e);
+                }
                 this.updateHeader();
             },
             update(k, v) {
@@ -1333,6 +1350,7 @@
             isReflecting: false,
             lastAdvice: '',
             lastEmotionComment: '',
+            lastVerbalizationComment: '',
             emotionPositive: [],
             emotionNegative: [],
 
@@ -1366,6 +1384,25 @@
                             ` : ''}
                             ${log.night ? `
                                 <div class="text-lg text-stone-100 leading-relaxed font-serif whitespace-pre-wrap mb-6 border-t border-stone-800 pt-6">${log.night.report}</div>
+                            ` : ''}
+                            ${log.night?.verbalization?.worry ? `
+                                <div class="mb-6 border-t border-stone-800 pt-6">
+                                    <div class="text-[10px] font-bold text-sky-500 uppercase tracking-widest mb-3"><i class="fa-solid fa-lightbulb"></i> いいところの言語化</div>
+                                    <div class="text-sm text-stone-300 mb-3 font-serif">悩み: ${log.night.verbalization.worry}</div>
+                                    <ul class="text-xs text-stone-400 space-y-1 mb-4">
+                                        ${log.night.verbalization.reverse ? `<li>❶ 逆に言うと、${log.night.verbalization.reverse}</li>` : ''}
+                                        ${log.night.verbalization.denial ? `<li>❷ ${log.night.verbalization.denial}は、別に悪いことじゃない</li>` : ''}
+                                        ${log.night.verbalization.premise ? `<li>❸ そもそも、${log.night.verbalization.premise}</li>` : ''}
+                                        ${log.night.verbalization.ifGone ? `<li>❹ もしも「${log.night.verbalization.ifGoneSubject}」が(い)なかったら、${log.night.verbalization.ifGone}</li>` : ''}
+                                        ${log.night.verbalization.distant ? `<li>❺ ひいて見ると、${log.night.verbalization.distant}</li>` : ''}
+                                    </ul>
+                                    ${log.night.verbalization.aiComment ? `
+                                        <div class="p-4 bg-stone-950 border border-sky-900/30">
+                                            <div class="text-[10px] font-bold text-sky-500 uppercase tracking-widest mb-2">親友トレーナーより</div>
+                                            <div class="text-xs text-stone-400 leading-relaxed whitespace-pre-wrap">${log.night.verbalization.aiComment}</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
                             ` : ''}
                             ${log.night?.aiAdvice ? `
                                 <div class="mt-8 p-6 bg-stone-950 border border-stone-800 relative overflow-hidden">
@@ -1499,6 +1536,16 @@
                                             </div>
                                             ` : ''}
 
+                                            ${this.lastVerbalizationComment ? `
+                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-sky-900/30 p-10 shadow-2xl relative overflow-hidden">
+                                                <div class="absolute right-6 top-6 opacity-5 text-7xl text-sky-500"><i class="fa-solid fa-lightbulb"></i></div>
+                                                <h3 class="text-[10px] font-bold text-sky-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                                                    <i class="fa-solid fa-lightbulb"></i> 親友トレーナーからの手紙 (Reframing Feedback)
+                                                </h3>
+                                                <div class="text-stone-200 leading-relaxed whitespace-pre-wrap">${this.lastVerbalizationComment}</div>
+                                            </div>
+                                            ` : ''}
+
                                             <div class="bg-stone-900/40 p-10 border border-stone-800">
                                                 <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-2">
                                                     <i class="fa-solid fa-compass text-indigo-400"></i> 明日の展望 (Next Strategy)
@@ -1573,6 +1620,68 @@
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                <!-- いいところの言語化セクション -->
+                                                <details class="mt-8 border-t border-stone-800 pt-8">
+                                                    <summary class="cursor-pointer list-none flex items-center justify-between select-none">
+                                                        <h3 class="text-stone-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                                                            <i class="fa-solid fa-lightbulb text-sky-400"></i> いいところの言語化 (Reframing Training)
+                                                        </h3>
+                                                        <span class="text-[10px] text-stone-600"><i class="fa-solid fa-chevron-down"></i> 任意</span>
+                                                    </summary>
+                                                    <p class="text-[10px] text-stone-600 mt-3 mb-5 italic">悩みを5つの角度から言い換える訓練。雑でもいい、書ける枠だけ埋めろ。</p>
+                                                    <div class="space-y-5">
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-sky-400 block mb-2">あなたの悩み</label>
+                                                            <textarea id="verb-worry"
+                                                                class="w-full bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 h-16 focus:outline-none focus:border-sky-500 placeholder-stone-600 resize-none"
+                                                                placeholder="例: 考えてばかりで行動に移せない"></textarea>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-stone-400 block mb-2">❶ 逆側から考えてみる</label>
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-sm text-stone-500 whitespace-nowrap">逆に言うと、</span>
+                                                                <input type="text" id="verb-reverse"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-sky-500 placeholder-stone-600">
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-stone-400 block mb-2">❷ あえて否定してみる</label>
+                                                            <div class="flex items-center gap-2">
+                                                                <input type="text" id="verb-denial"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-sky-500 placeholder-stone-600">
+                                                                <span class="text-sm text-stone-500 whitespace-nowrap">は、別に悪いことじゃない</span>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-stone-400 block mb-2">❸ そもそも論で考えてみる</label>
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-sm text-stone-500 whitespace-nowrap">そもそも、</span>
+                                                                <input type="text" id="verb-premise"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-sky-500 placeholder-stone-600">
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-stone-400 block mb-2">❹ なくなった状態を考えてみる</label>
+                                                            <div class="flex items-center gap-2 flex-wrap">
+                                                                <span class="text-sm text-stone-500 whitespace-nowrap">もしも「</span>
+                                                                <input type="text" id="verb-ifgone-subject"
+                                                                    class="w-36 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-sky-500 placeholder-stone-600">
+                                                                <span class="text-sm text-stone-500 whitespace-nowrap">」が(い)なかったら、</span>
+                                                                <input type="text" id="verb-ifgone"
+                                                                    class="flex-1 min-w-[10rem] bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-sky-500 placeholder-stone-600">
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <label class="text-[10px] font-bold text-stone-400 block mb-2">❺ 一度遠くから見てみる</label>
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-sm text-stone-500 whitespace-nowrap">ひいて見ると、</span>
+                                                                <input type="text" id="verb-distant"
+                                                                    class="flex-1 bg-stone-800/50 border border-stone-700 text-stone-200 text-sm px-3 py-2 focus:outline-none focus:border-sky-500 placeholder-stone-600">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </details>
 
                                                 <div class="mt-8 flex justify-end">
                                                     <button onclick="App.finishDay()"
@@ -3000,12 +3109,49 @@ ${negatives.length > 0 ? negatives.map((n, i) => `${i + 1}. ${n}`).join('\n') : 
                         emotionComment = await GeminiService.generate(emotionPrompt);
                     }
 
+                    // いいところの言語化へのAIコメント
+                    const verbalization = {
+                        worry: document.getElementById('verb-worry')?.value.trim() || '',
+                        reverse: document.getElementById('verb-reverse')?.value.trim() || '',
+                        denial: document.getElementById('verb-denial')?.value.trim() || '',
+                        premise: document.getElementById('verb-premise')?.value.trim() || '',
+                        ifGoneSubject: document.getElementById('verb-ifgone-subject')?.value.trim() || '',
+                        ifGone: document.getElementById('verb-ifgone')?.value.trim() || '',
+                        distant: document.getElementById('verb-distant')?.value.trim() || '',
+                        aiComment: ''
+                    };
+                    if (verbalization.worry) {
+                        const verbPrompt = `ここからは陣内ではなく、別の人格として答えてください。
+あなたは「世界一の言語化トレーナー」であり、相手にとって「世界一の親友」です。
+相手は『言語化はありきたりの言葉でうまくいく』の「いいところ発見術」を毎晩トレーニングしている営業マンです。
+今夜、自分の悩みを5つの角度から言い換える練習をしました。以下を読んでコメントしてください。
+
+ルール:
+- まず、悩みを言葉にしたこと自体を親友として喜んでください
+- 書かれた言い換えの中で一番良いものを1つ選び、どこが良いのかを具体的に褒めてください
+- トレーナーとして「こう言い換えるともっと楽になる」という別解を1つだけ示してください
+- 最後に必ず【明日の一歩】として、明日ためせる小さな行動を1つ提案してください。相手は「考えて終わる」傾向があるので、5分以内に実行できる具体的な行動にしてください
+- 説教や正論は禁止。全体で250〜350文字程度
+- 未記入の枠には触れないでください
+
+【あなたの悩み】
+${verbalization.worry}
+
+【❶逆側から】逆に言うと、${verbalization.reverse || '(未記入)'}
+【❷あえて否定】${verbalization.denial || '(未記入)'}は、別に悪いことじゃない
+【❸そもそも論】そもそも、${verbalization.premise || '(未記入)'}
+【❹なくなった状態】もしも「${verbalization.ifGoneSubject || '(未記入)'}」が(い)なかったら、${verbalization.ifGone || '(未記入)'}
+【❺遠くから】ひいて見ると、${verbalization.distant || '(未記入)'}`;
+                        verbalization.aiComment = await GeminiService.generate(verbPrompt) || '';
+                    }
+
                     Store.saveDailyLog('night', {
                         report,
                         aiAdvice: txt,
                         emotionPositive: positives,
                         emotionNegative: negatives,
                         emotionComment,
+                        verbalization: verbalization.worry ? verbalization : null,
                         timestamp: new Date().toLocaleTimeString()
                     });
 
@@ -3013,16 +3159,26 @@ ${negatives.length > 0 ? negatives.map((n, i) => `${i + 1}. ${n}`).join('\n') : 
                     const today = new Date().toISOString().split('T')[0];
                     const emotionMd = (positives.length > 0 || negatives.length > 0) ?
                         `## 今日の感情\n### 嬉しかったこと\n${positives.map(p => `- ${p}`).join('\n') || '(なし)'}\n\n### モヤッとしたこと\n${negatives.map(n => `- ${n}`).join('\n') || '(なし)'}\n\n### コメント\n${emotionComment}\n\n` : '';
+                    const verbMd = verbalization.worry ?
+                        `## いいところの言語化\n### 悩み\n${verbalization.worry}\n\n` +
+                        (verbalization.reverse ? `- 逆に言うと、${verbalization.reverse}\n` : '') +
+                        (verbalization.denial ? `- ${verbalization.denial}は、別に悪いことじゃない\n` : '') +
+                        (verbalization.premise ? `- そもそも、${verbalization.premise}\n` : '') +
+                        (verbalization.ifGone ? `- もしも「${verbalization.ifGoneSubject}」が(い)なかったら、${verbalization.ifGone}\n` : '') +
+                        (verbalization.distant ? `- ひいて見ると、${verbalization.distant}\n` : '') +
+                        `\n### 親友トレーナーより\n${verbalization.aiComment}\n\n` : '';
                     const nightMd = `# 夜の報告 - ${today}\n\n` +
                         `## 今日のテーマ\n${Store.state.dailyKpi.theme || '(未設定)'}\n\n` +
                         `## 完了リスト\n${report}\n\n` +
                         emotionMd +
+                        verbMd +
                         `## 陣内より\n${txt}\n`;
                     DriveLogger.saveContent('night', `夜の報告_${today}`, nightMd);
 
                     NightView.isReflecting = true;
                     NightView.lastAdvice = txt;
                     NightView.lastEmotionComment = emotionComment;
+                    NightView.lastVerbalizationComment = verbalization.aiComment;
                     Store.refreshStreak();
                     Store.checkBadges();
                     this.route();
@@ -3041,6 +3197,7 @@ ${negatives.length > 0 ? negatives.map((n, i) => `${i + 1}. ${n}`).join('\n') : 
                 NightView.isReflecting = false;
                 NightView.lastAdvice = '';
                 NightView.lastEmotionComment = '';
+                NightView.lastVerbalizationComment = '';
                 NightView.emotionPositive = [];
                 NightView.emotionNegative = [];
 

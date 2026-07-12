@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(ls \"C:\\\\Users\\\\jonso\\\\OneDrive\\\\Desktop\\\\claude\\\\think\\\\\" 2>/dev/null)",
+      "Bash(ls \"/c/Users/jonso/OneDrive/Desktop/claude/think/\")",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__javascript_tool"
     ]
   }
 }
