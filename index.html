@@ -284,6 +284,328 @@
 
     </main>
 
+    <!-- GASスクリプト本体（設定画面からワンタップでコピーさせるために同梱。実行はされない） -->
+    <script type="text/plain" id="gas-source">
+/**
+ * 営業参謀 Pro ―― データ保管サーバー (Google Apps Script)
+ *
+ * これ1本で次の2つをまかなう。
+ *   1. 端末間の同期  … スマホとパソコンで同じ内容を見るための保管場所
+ *   2. 記録の書き出し … 朝の作戦・夜の報告・知識の倉庫をGoogleドライブにファイルとして残す
+ *
+ * データはすべて、このスクリプトを動かしているあなた自身のGoogleドライブにだけ保存される。
+ *
+ * ===========================================================
+ *  やること（この下の1行を書き換えるだけ）
+ * ===========================================================
+ */
+
+// ▼▼▼ ここだけ書き換える ▼▼▼
+// アプリの「システム設定 → 端末間の同期 →【合言葉を作る】」で作った文字列を、
+// 下のクォート('')の中に貼り付ける。クォートは消さないこと。
+var SYNC_TOKEN = 'PASTE_YOUR_PASSPHRASE_HERE';
+// ▲▲▲ ここだけ書き換える ▲▲▲
+
+/**
+ * ===========================================================
+ *  続きの手順
+ * ===========================================================
+ *  1. 上の SYNC_TOKEN を貼り替えて保存（Ctrl+S / ⌘+S）
+ *  2. 上部の関数選択で setup を選び「実行」→ 権限を承認する
+ *       「このアプリは確認されていません」→「詳細」→「(プロジェクト名)に移動」→「許可」
+ *  3. 右上「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」
+ *       次のユーザーとして実行 : 自分
+ *       アクセスできるユーザー : 全員
+ *  4. 出てきた https://script.google.com/macros/s/..../exec をコピー
+ *  5. アプリの「システム設定 → 端末間の同期」にURLを貼って【保存】
+ *
+ *  ※「全員」でも、合言葉を知らない相手にはデータを一切返さない。
+ *    ただしURLと合言葉をセットで人に渡さないこと。
+ */
+
+var FILE_NAME = 'sales-atelier-state.json';
+var BACKUP_PREFIX = 'sales-atelier-state.backup-';
+var BACKUP_KEEP_DAYS = 14;
+var ROOT_FOLDER_NAME = '営業参謀Pro';
+var API_VERSION = 2;
+
+/* ================================================================== */
+/* 入り口                                                              */
+/* ================================================================== */
+
+/** 読み出し (GET) */
+function doGet(e) {
+  try {
+    var p = (e && e.parameter) || {};
+
+    // 疎通確認。合言葉が合っているかどうかだけを返し、データは返さない。
+    if (p.action === 'ping') {
+      return json({
+        ok: true,
+        pong: true,
+        version: API_VERSION,
+        authorized: matchesToken_(p.token),
+        tokenConfigured: isTokenConfigured_()
+      });
+    }
+
+    if (!isAuthorized_(p.token)) return json(authError_());
+
+    if (p.action === 'load') {
+      var file = findFile_(FILE_NAME);
+      if (!file) return json({ ok: true, exists: false, updatedAt: 0, state: null });
+      var payload = readJson_(file);
+      if (!payload) return json({ ok: true, exists: false, updatedAt: 0, state: null });
+      return json({
+        ok: true,
+        exists: true,
+        updatedAt: payload.updatedAt || 0,
+        deviceName: payload.deviceName || '',
+        state: payload.state || null
+      });
+    }
+
+    return json({ ok: false, error: 'UNKNOWN_ACTION' });
+  } catch (err) {
+    return json({ ok: false, error: 'EXCEPTION', message: String(err) });
+  }
+}
+
+/**
+ * 書き込み (POST)
+ * Content-Type は text/plain で送ること。
+ * application/json にするとブラウザがプリフライト(OPTIONS)を投げ、GASが応答できず必ず失敗する。
+ */
+function doPost(e) {
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+
+    // 旧版のアプリは auth_token という名前で送ってくるので両方受ける
+    var token = body.token || body.auth_token;
+    if (!isAuthorized_(token)) return json(authError_());
+
+    switch (body.action) {
+      case 'save': return saveState_(body);
+      case 'content': return saveContent_(body);
+      case 'log': case undefined: case '': return appendLog_(body);
+      default: return json({ ok: false, error: 'UNKNOWN_ACTION' });
+    }
+  } catch (err) {
+    return json({ ok: false, error: 'EXCEPTION', message: String(err) });
+  }
+}
+
+/* ================================================================== */
+/* 1. 端末間の同期                                                     */
+/* ================================================================== */
+
+function saveState_(body) {
+  var lock = LockService.getScriptLock();
+  try {
+    if (!body.state || typeof body.state !== 'object') return json({ ok: false, error: 'NO_STATE' });
+
+    lock.waitLock(20000);
+
+    var file = findFile_(FILE_NAME);
+    var current = file ? readJson_(file) : null;
+    var serverUpdatedAt = (current && current.updatedAt) || 0;
+    var base = Number(body.baseUpdatedAt || 0);
+
+    // 別の端末が先に保存していたら、上書きせずに競合として返す
+    if (!body.force && current && serverUpdatedAt > base) {
+      return json({
+        ok: true,
+        conflict: true,
+        updatedAt: serverUpdatedAt,
+        deviceName: current.deviceName || '',
+        state: current.state || null
+      });
+    }
+
+    var now = Date.now();
+    var payload = {
+      updatedAt: now,
+      deviceName: String(body.deviceName || ''),
+      savedAtText: new Date(now).toLocaleString('ja-JP'),
+      state: body.state
+    };
+
+    writeJson_(file, FILE_NAME, payload);
+    makeDailyBackup_(payload);
+
+    return json({ ok: true, conflict: false, updatedAt: now });
+  } catch (err) {
+    return json({ ok: false, error: 'EXCEPTION', message: String(err) });
+  } finally {
+    try { lock.releaseLock(); } catch (ignore) { }
+  }
+}
+
+/** 1日1回だけバックアップを残し、古いものは消す（誤上書きの保険） */
+function makeDailyBackup_(payload) {
+  try {
+    var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    var name = BACKUP_PREFIX + today + '.json';
+    if (findFile_(name)) return;
+
+    getFolder_('バックアップ').createFile(name, JSON.stringify(payload), MimeType.PLAIN_TEXT);
+
+    var limit = new Date().getTime() - BACKUP_KEEP_DAYS * 24 * 60 * 60 * 1000;
+    var it = getFolder_('バックアップ').getFiles();
+    while (it.hasNext()) {
+      var f = it.next();
+      if (f.getName().indexOf(BACKUP_PREFIX) !== 0) continue;
+      if (f.getDateCreated().getTime() < limit) f.setTrashed(true);
+    }
+  } catch (err) {
+    // バックアップの失敗で本体の保存を止めない
+  }
+}
+
+/* ================================================================== */
+/* 2. 記録の書き出し                                                   */
+/* ================================================================== */
+
+/** 朝の作戦・夜の報告・知識の倉庫を、種類別フォルダにファイルとして残す */
+function saveContent_(body) {
+  var type = sanitizeName_(body.content_type || 'other');
+  var title = sanitizeName_(body.title || ('無題_' + Date.now()));
+  var folder = getFolder_(type);
+
+  // 同じ名前が既にあるなら中身を差し替える（同じ日に2回書いても増殖させない）
+  var existing = folder.getFilesByName(title + '.md');
+  if (existing.hasNext()) {
+    var f = existing.next();
+    f.setContent(String(body.content || ''));
+    return json({ ok: true, updated: true, url: f.getUrl() });
+  }
+
+  var created = folder.createFile(title + '.md', String(body.content || ''), MimeType.PLAIN_TEXT);
+  return json({ ok: true, created: true, url: created.getUrl() });
+}
+
+/** 動作ログを月ごとのテキストファイルに追記する */
+function appendLog_(body) {
+  var month = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
+  var name = 'app-log-' + month + '.txt';
+  var folder = getFolder_('ログ');
+
+  var line = [
+    new Date().toISOString(),
+    String(body.level || 'INFO'),
+    String(body.app_name || ''),
+    String(body.message || ''),
+    body.details ? JSON.stringify(body.details) : ''
+  ].join('\t') + '\n';
+
+  var it = folder.getFilesByName(name);
+  if (it.hasNext()) {
+    var f = it.next();
+    f.setContent(f.getBlob().getDataAsString('UTF-8') + line);
+  } else {
+    folder.createFile(name, line, MimeType.PLAIN_TEXT);
+  }
+  return json({ ok: true, logged: true });
+}
+
+/* ================================================================== */
+/* 内部処理                                                            */
+/* ================================================================== */
+
+function isTokenConfigured_() {
+  var t = String(SYNC_TOKEN || '').trim();
+  return t.length > 0 && t !== 'PASTE_YOUR_PASSPHRASE_HERE';
+}
+
+function matchesToken_(token) {
+  return isTokenConfigured_() && String(token || '').trim() === String(SYNC_TOKEN).trim();
+}
+
+function isAuthorized_(token) {
+  return matchesToken_(token);
+}
+
+function authError_() {
+  if (!isTokenConfigured_()) {
+    return { ok: false, error: 'NO_TOKEN', message: 'スクリプト側の SYNC_TOKEN がまだ初期値のままです' };
+  }
+  return { ok: false, error: 'AUTH', message: '合言葉が違います' };
+}
+
+function json(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 「営業参謀Pro / <名前>」フォルダを用意して返す */
+function getFolder_(name) {
+  var root = getOrCreateFolder_(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+  return name ? getOrCreateFolder_(root, name) : root;
+}
+
+function getOrCreateFolder_(parent, name) {
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+/** 同期の本体ファイルは「営業参謀Pro」直下に置く */
+function findFile_(name) {
+  var it = getFolder_().getFilesByName(name);
+  if (it.hasNext()) return it.next();
+
+  // 旧版でドライブ直下に作られていた場合は、それを引き継ぐ
+  var legacy = DriveApp.getFilesByName(name);
+  return legacy.hasNext() ? legacy.next() : null;
+}
+
+function readJson_(file) {
+  try {
+    return JSON.parse(file.getBlob().getDataAsString('UTF-8'));
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeJson_(file, name, payload) {
+  var text = JSON.stringify(payload);
+  if (file) {
+    file.setContent(text);
+    return file;
+  }
+  return getFolder_().createFile(name, text, MimeType.PLAIN_TEXT);
+}
+
+/** ファイル名に使えない文字を落とす */
+function sanitizeName_(s) {
+  return String(s).replace(/[\\\/:*?"<>|]/g, '_').slice(0, 120);
+}
+
+/**
+ * 手動で1回実行して、Driveへのアクセス権限を承認するための関数。
+ * 設定が正しいかどうかもここで確認できる。
+ */
+function setup() {
+  if (!isTokenConfigured_()) {
+    Logger.log('■ まだ SYNC_TOKEN が初期値です。');
+    Logger.log('  アプリの「システム設定 → 端末間の同期 →【合言葉を作る】」で作った文字列を');
+    Logger.log('  ファイル先頭の SYNC_TOKEN に貼り付けてから、もう一度この setup を実行してください。');
+    return;
+  }
+
+  var root = getFolder_();
+  Logger.log('■ 準備できました。');
+  Logger.log('  保存先フォルダ : ' + root.getUrl());
+
+  var file = findFile_(FILE_NAME);
+  Logger.log('  同期ファイル   : ' + (file ? file.getUrl() : 'まだありません（初回同期時に作られます）'));
+  Logger.log('');
+  Logger.log('  次は「デプロイ → 新しいデプロイ → ウェブアプリ」');
+  Logger.log('  （実行するユーザー: 自分 / アクセスできるユーザー: 全員）に進んでください。');
+}
+    </script>
+    <!-- /gas-source -->
+
     <!-- MODALS -->
     <div id="modal-root"></div>
 
@@ -292,38 +614,37 @@
         const AI_MODEL = 'gemini-1.5-flash';
 
         // --- Drive Logger ---
+        // 朝の作戦・夜の報告・知識の倉庫を、Googleドライブにファイルとして残す。
+        // 保存先URLと合言葉は同期設定(Sync.cfg)を共用する。コードには一切埋め込まない。
         const DriveLogger = {
-            GAS_URL: "https://script.google.com/macros/s/AKfycbzCQPNsL18vEfa5_8UXFr3phUJG-FarqCn3vbslVSzlet_cok1N5s3D4fpfNTWW8-Npww/exec",
-            AUTH_TOKEN: "jonsonpanson",
             APP_NAME: "SalesAtelierPro",
 
-            sendLog(level, message, details) {
-                fetch(this.GAS_URL, {
+            /** 送信先が設定済みか */
+            isReady() {
+                try { return Sync.isConfigured(); } catch (e) { return false; }
+            },
+
+            post(payload) {
+                if (!this.isReady()) return;   // 未設定なら黙って何もしない
+                fetch(Sync.cfg.url, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    // ※ application/json にするとCORSプリフライトが飛び、GASが応答できず必ず失敗する
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({
-                        auth_token: this.AUTH_TOKEN,
+                        token: Sync.cfg.token,
                         app_name: this.APP_NAME,
-                        level,
-                        message,
-                        details,
+                        ...payload,
                     }),
-                }).catch(e => console.warn("[DriveLogger] Failed to send log:", e));
+                    redirect: "follow",
+                }).catch(e => console.warn("[DriveLogger] 送信に失敗:", e));
+            },
+
+            sendLog(level, message, details) {
+                this.post({ action: "log", level, message, details });
             },
 
             saveContent(contentType, title, content) {
-                fetch(this.GAS_URL, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        auth_token: this.AUTH_TOKEN,
-                        app_name: this.APP_NAME,
-                        action: "content",
-                        content_type: contentType,
-                        title,
-                        content,
-                    }),
-                }).catch(e => console.warn("[DriveLogger] Failed to save content:", e));
+                this.post({ action: "content", content_type: contentType, title, content });
             }
         };
 
@@ -3884,40 +4205,30 @@ ${question}
                             <div class="mb-6 p-4 border-2 border-orange-200 bg-orange-50/40 rounded-sm">
                                 <h3 class="text-xs font-bold text-stone-700 mb-1"><i class="fa-solid fa-mobile-screen-button mr-1 text-orange-600"></i>端末間の同期（スマホ ⇄ パソコン）</h3>
                                 <p class="text-[10px] text-stone-500 leading-relaxed mb-3">
-                                    Google Apps Script に保存先を作ると、両方の端末で同じ内容が見られる。
-                                    手順は <span class="font-mono">gas/sync.gs</span> の先頭に書いてある。
+                                    自分のGoogleドライブに置き場所を作れば、スマホとパソコンで同じ内容が見られる。
                                 </p>
-                                <label class="block mb-2">
-                                    <span class="text-[10px] font-bold text-stone-400">同期先URL（… /exec）</span>
-                                    <input type="url" id="sync-url" inputmode="url" placeholder="https://script.google.com/macros/s/..../exec"
-                                        class="w-full border-b border-stone-300 py-1 outline-none text-xs font-mono bg-transparent" value="${Sync.cfg.url}">
-                                </label>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                    <label class="block">
-                                        <span class="text-[10px] font-bold text-stone-400">合言葉（SYNC_TOKEN）</span>
-                                        <input type="password" id="sync-token" class="w-full border-b border-stone-300 py-1 outline-none text-xs font-mono bg-transparent" value="${Sync.cfg.token}">
-                                    </label>
-                                    <label class="block">
-                                        <span class="text-[10px] font-bold text-stone-400">この端末の名前</span>
-                                        <input type="text" id="sync-device" placeholder="${Sync.defaultDeviceName()}" class="w-full border-b border-stone-300 py-1 outline-none text-xs bg-transparent" value="${Sync.cfg.deviceName || ''}">
-                                    </label>
-                                </div>
-                                <div class="flex items-center gap-2 mb-3">
-                                    <input type="checkbox" id="sync-enabled" ${Sync.cfg.enabled || !Sync.cfg.url ? 'checked' : ''}>
-                                    <label for="sync-enabled" class="text-xs cursor-pointer">同期を有効にする</label>
-                                </div>
-                                <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] text-stone-500">
-                                    <span>状態: <span id="sync-settings-status" class="font-bold">${Sync.message}</span></span>
-                                    <div class="flex gap-3">
-                                        <button onclick="App.saveSyncSettings()" class="text-orange-600 font-bold hover:underline"><i class="fa-solid fa-floppy-disk mr-1"></i>保存</button>
-                                        <button onclick="App.testSyncConnection()" class="text-indigo-600 font-bold hover:underline"><i class="fa-solid fa-plug mr-1"></i>接続テスト</button>
-                                        <button onclick="Sync.syncNow(true)" class="text-stone-700 font-bold hover:underline"><i class="fa-solid fa-rotate mr-1"></i>今すぐ同期</button>
+
+                                <div class="text-[11px] mb-3">状態: <span id="sync-settings-status" class="font-bold">${Sync.message}</span></div>
+
+                                <button onclick="App.openSyncSetup()" class="w-full bg-orange-600 text-white py-3 text-xs font-bold hover:bg-orange-500 transition-colors mb-3">
+                                    <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>${Sync.isConfigured() ? '設定を見直す' : 'セットアップを始める'}
+                                </button>
+
+                                ${Sync.isConfigured() ? `
+                                <div class="space-y-2 text-[10px] text-stone-500">
+                                    <div class="flex justify-between gap-2">
+                                        <span class="shrink-0">この端末</span>
+                                        <span class="font-bold text-stone-700 truncate">${Sync.cfg.deviceName || '-'}</span>
                                     </div>
-                                </div>
-                                <p class="text-[9px] text-stone-400 mt-3 leading-relaxed">
-                                    ・APIキーは同期されない（端末ごとに入力）。<br>
-                                    ・URLと合言葉は他人に渡さないこと。渡すと中身を読まれる。
-                                </p>
+                                    <div class="flex flex-wrap gap-3 justify-end pt-1">
+                                        <button onclick="Sync.syncNow(true)" class="text-stone-700 font-bold hover:underline"><i class="fa-solid fa-rotate mr-1"></i>今すぐ同期</button>
+                                        <button onclick="App.copySyncToken()" class="text-indigo-600 font-bold hover:underline"><i class="fa-solid fa-key mr-1"></i>合言葉をコピー</button>
+                                        <button onclick="App.disableSync()" class="text-red-500 font-bold hover:underline"><i class="fa-solid fa-link-slash mr-1"></i>この端末で停止</button>
+                                    </div>
+                                    <p class="text-[9px] text-stone-400 leading-relaxed pt-2 border-t border-stone-200">
+                                        APIキーは同期されない（端末ごとに入力）。URLと合言葉は他人に渡さないこと。
+                                    </p>
+                                </div>` : ''}
                             </div>
                             <div class="mb-4 p-3 bg-stone-50 rounded border border-stone-200">
                                 <h4 class="font-bold text-xs text-stone-700 mb-2"><i class="fa-solid fa-bell mr-1"></i>ブラウザ通知</h4>
@@ -3957,6 +4268,191 @@ ${question}
             }
         };
 
+        // --- 同期セットアップの案内画面 ---
+        const SyncSetupModal = {
+            render() {
+                const token = Sync.cfg.token || '';
+                const url = Sync.cfg.url || '';
+                const step = (n, title, body) => `
+                    <div class="flex gap-3 mb-5">
+                        <div class="shrink-0 w-7 h-7 rounded-full bg-stone-900 text-white text-xs font-bold flex items-center justify-center">${n}</div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm text-stone-800 mb-1">${title}</div>
+                            <div class="text-xs text-stone-600 leading-relaxed">${body}</div>
+                        </div>
+                    </div>`;
+
+                return `
+                    <div class="fixed inset-0 bg-stone-900/90 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto"
+                        onclick="if(event.target===this) App.closeModal()">
+                        <div class="bg-white w-full max-w-[560px] max-h-[92dvh] overflow-y-auto shadow-2xl border-t-4 border-orange-600">
+                            <div class="sticky top-0 bg-white/95 backdrop-blur px-5 py-4 border-b border-stone-200 flex justify-between items-center z-10">
+                                <h2 class="font-bold text-base serif"><i class="fa-solid fa-mobile-screen-button text-orange-600 mr-2"></i>同期のセットアップ</h2>
+                                <button onclick="App.openSettings()" class="text-stone-400 hover:text-stone-800 p-1"><i class="fa-solid fa-xmark fa-lg"></i></button>
+                            </div>
+
+                            <div class="p-5">
+                                <p class="text-xs text-stone-500 leading-relaxed mb-5 bg-stone-50 border border-stone-200 p-3">
+                                    一度やれば終わり。データの置き場所を自分のGoogleドライブに作る作業だ。<br>
+                                    <b>パソコン側から先にやること。</b>先に空のスマホを繋ぐと、空の状態が保存されてしまう。
+                                </p>
+
+                                ${step(1, '合言葉を作る', `
+                                    データの鍵になる。押すだけで作られる。
+                                    <div class="mt-2 flex gap-2">
+                                        <input type="text" id="sync-token" readonly value="${token}" placeholder="まだ作られていない"
+                                            class="flex-1 min-w-0 border border-stone-300 bg-stone-50 px-2 py-2 text-[11px] font-mono">
+                                        <button onclick="App.generateSyncToken()" class="shrink-0 bg-stone-900 text-white px-3 py-2 text-xs font-bold hover:bg-orange-600 transition-colors">
+                                            合言葉を作る
+                                        </button>
+                                    </div>`)}
+
+                                ${step(2, 'スクリプトをコピー', `
+                                    合言葉を埋め込んだ状態でコピーされる。<b>コードを手で書き換える必要はない。</b>
+                                    <div class="mt-2">
+                                        <button onclick="App.copyGasScript()" class="w-full bg-orange-600 text-white py-3 text-xs font-bold hover:bg-orange-500 transition-colors">
+                                            <i class="fa-solid fa-copy mr-1"></i>スクリプト全文をコピー
+                                        </button>
+                                        <div id="gas-copy-result" class="text-[10px] text-stone-500 mt-1"></div>
+                                    </div>`)}
+
+                                ${step(3, 'Apps Script に貼り付ける', `
+                                    下のボタンで開く →「<b>新しいプロジェクト</b>」→ 元から入っているコードを<b>全部消して</b>貼り付け → 保存（Ctrl+S / ⌘+S）
+                                    <div class="mt-2">
+                                        <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener"
+                                            class="inline-flex items-center gap-2 border-2 border-stone-300 px-3 py-2 text-xs font-bold text-stone-700 hover:border-orange-400 hover:text-orange-700 transition-colors">
+                                            <i class="fa-solid fa-up-right-from-square"></i>script.google.com を開く
+                                        </a>
+                                    </div>`)}
+
+                                ${step(4, '権限を承認する', `
+                                    画面上部の関数選択で <span class="font-mono bg-stone-100 px-1">setup</span> を選び「<b>実行</b>」。<br>
+                                    「このアプリは確認されていません」と出たら →「<b>詳細</b>」→「<b>(プロジェクト名)に移動</b>」→「<b>許可</b>」。<br>
+                                    <span class="text-stone-400">自分で書いたスクリプトなので、この警告で問題ない。</span>`)}
+
+                                ${step(5, 'ウェブアプリとして公開する', `
+                                    右上「<b>デプロイ</b>」→「<b>新しいデプロイ</b>」→ 歯車から「<b>ウェブアプリ</b>」<br>
+                                    ・次のユーザーとして実行： <b>自分</b><br>
+                                    ・アクセスできるユーザー： <b>全員</b><br>
+                                    出てきた <span class="font-mono text-[10px]">.../exec</span> で終わるURLをコピー。
+                                    <div class="mt-2 text-[10px] text-stone-400 bg-stone-50 border border-stone-200 p-2">
+                                        「全員」でも、合言葉を知らない相手にはデータを返さない作りにしてある。
+                                        ただしURLと合言葉をセットで人に渡さないこと。
+                                    </div>`)}
+
+                                ${step(6, 'URLをここに貼る', `
+                                    <div class="mt-2 space-y-2">
+                                        <input type="url" id="sync-url" inputmode="url" value="${url}" placeholder="https://script.google.com/macros/s/..../exec"
+                                            class="w-full border border-stone-300 px-2 py-2 text-[11px] font-mono focus:outline-none focus:border-orange-500">
+                                        <input type="text" id="sync-device" value="${Sync.cfg.deviceName || Sync.defaultDeviceName()}" placeholder="この端末の名前"
+                                            class="w-full border border-stone-300 px-2 py-2 text-xs focus:outline-none focus:border-orange-500">
+                                        <input type="checkbox" id="sync-enabled" checked class="hidden">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <button onclick="App.testSyncConnection()" class="border-2 border-stone-300 py-3 text-xs font-bold text-stone-700 hover:border-indigo-400 hover:text-indigo-700 transition-colors">
+                                                <i class="fa-solid fa-plug mr-1"></i>接続テスト
+                                            </button>
+                                            <button onclick="App.saveSyncSettings()" class="bg-stone-900 text-white py-3 text-xs font-bold hover:bg-orange-600 transition-colors">
+                                                <i class="fa-solid fa-floppy-disk mr-1"></i>保存して同期
+                                            </button>
+                                        </div>
+                                        <div class="text-[11px] text-center">状態: <span id="sync-settings-status" class="font-bold">${Sync.message}</span></div>
+                                    </div>`)}
+
+                                <div class="border-t border-stone-200 pt-4 mt-2 text-[10px] text-stone-500 leading-relaxed">
+                                    <b class="text-stone-700">もう一方の端末では</b>、手順1〜5は不要。
+                                    この画面で同じ<b>合言葉</b>と<b>URL</b>を入れて保存するだけでいい。
+                                    合言葉はこの端末の設定画面からコピーできる。
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+        };
+
+        // --- 同期セットアップ ---
+        App.openSyncSetup = function () {
+            document.getElementById('modal-root').innerHTML = SyncSetupModal.render();
+        };
+
+        /** 推測されない合言葉を作る（32文字） */
+        App.generateSyncToken = function () {
+            const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const bytes = new Uint8Array(32);
+            crypto.getRandomValues(bytes);
+            const token = Array.from(bytes).map(b => chars[b % chars.length]).join('');
+            const el = document.getElementById('sync-token');
+            if (el) el.value = token;
+            Sync.cfg.token = token;
+            Sync.saveConfig();
+            return token;
+        };
+
+        /** GASスクリプトに合言葉を埋め込んでクリップボードへ */
+        App.copyGasScript = async function () {
+            const result = document.getElementById('gas-copy-result');
+            const token = (document.getElementById('sync-token')?.value || '').trim();
+            if (!token) {
+                alert('先に「合言葉を作る」を押してくれ。');
+                return;
+            }
+
+            const raw = document.getElementById('gas-source')?.textContent || '';
+            if (!raw) { alert('スクリプトが見つからない。ページを再読み込みしてくれ。'); return; }
+
+            const src = raw.replace("var SYNC_TOKEN = 'PASTE_YOUR_PASSPHRASE_HERE';",
+                "var SYNC_TOKEN = '" + token + "';");
+            if (src === raw) {
+                // 置換に失敗したら黙って合言葉なしのコードを渡さない
+                alert('スクリプトへの合言葉の埋め込みに失敗した。手順書 SETUP-SYNC.md の手動手順を使ってくれ。');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(src);
+                if (result) result.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fa-solid fa-check"></i> コピーした。合言葉も埋め込み済み。</span>';
+            } catch (e) {
+                // クリップボードが使えない環境向けの逃げ道
+                App.showGasScriptFallback(src);
+            }
+        };
+
+        /** クリップボードが使えないときは、選択してコピーできる形で出す */
+        App.showGasScriptFallback = function (src) {
+            const box = document.createElement('div');
+            box.className = 'fixed inset-0 bg-stone-900/90 flex items-center justify-center z-[60] p-3';
+            box.innerHTML = `
+                <div class="bg-white w-full max-w-[560px] max-h-[90dvh] flex flex-col p-4 shadow-2xl">
+                    <div class="text-xs font-bold mb-2">自動コピーができなかった。下を全選択してコピーしてくれ。</div>
+                    <textarea id="gas-fallback-text" class="flex-1 w-full h-[60dvh] text-[10px] font-mono border border-stone-300 p-2" readonly></textarea>
+                    <button class="mt-2 bg-stone-900 text-white py-3 text-xs font-bold">閉じる</button>
+                </div>`;
+            box.querySelector('textarea').value = src;
+            box.querySelector('button').onclick = () => box.remove();
+            document.body.appendChild(box);
+            const ta = box.querySelector('textarea');
+            ta.focus(); ta.select();
+        };
+
+        /** もう一方の端末に入力するために、合言葉を手元にコピーする */
+        App.copySyncToken = async function () {
+            if (!Sync.cfg.token) { alert('合言葉がまだ無い。セットアップから作ってくれ。'); return; }
+            try {
+                await navigator.clipboard.writeText(Sync.cfg.token);
+                alert('合言葉をコピーした。もう一方の端末のセットアップ画面に貼ってくれ。');
+            } catch (e) {
+                prompt('この文字列をコピーしてくれ:', Sync.cfg.token);
+            }
+        };
+
+        /** この端末だけ同期を止める（サーバー上のデータは消さない） */
+        App.disableSync = function () {
+            if (!confirm('この端末での同期を止める。\n\nサーバー上のデータは残るし、他の端末の同期も止まらない。\nこの端末のデータもそのまま残る。よろしいか？')) return;
+            Sync.cfg.enabled = false;
+            Sync.saveConfig();
+            Sync.render();
+            App.openSettings();
+        };
+
         // --- 同期設定の保存・接続テスト ---
         App.saveSyncSettings = function () {
             const url = (document.getElementById('sync-url').value || '').trim();
@@ -3965,7 +4461,7 @@ ${question}
             const enabled = document.getElementById('sync-enabled').checked;
 
             if (enabled && !url) { alert('同期先URLが空だ。'); return; }
-            if (enabled && !token) { alert('合言葉が空だ。GAS側の SYNC_TOKEN と同じ文字列を入れてくれ。'); return; }
+            if (enabled && !token) { alert('合言葉が空だ。手順1の「合言葉を作る」を先に押してくれ。'); return; }
             if (enabled && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) {
                 if (!confirm('URLの形がGASのウェブアプリと違うように見える。このまま保存する？')) return;
             }
@@ -3977,8 +4473,14 @@ ${question}
             Sync.saveConfig();
             Sync.render();
 
-            alert('同期設定を保存した。');
-            if (enabled) Sync.syncNow(true);
+            if (enabled) {
+                Sync.syncNow(true).then(() => {
+                    if (Sync.status === 'ok') App.openSettings();
+                });
+            } else {
+                alert('同期設定を保存した（同期は無効のまま）。');
+                App.openSettings();
+            }
         };
 
         App.testSyncConnection = async function () {
@@ -4002,9 +4504,12 @@ ${question}
                 if (res.pong && res.authorized) {
                     statusEl.textContent = '接続OK';
                     alert('つながった。合言葉も合っている。');
+                } else if (res.pong && res.tokenConfigured === false) {
+                    statusEl.textContent = 'スクリプト側が未設定';
+                    alert('URLは合っているが、スクリプト側の SYNC_TOKEN がまだ初期値のままだ。\n\n手順2の「スクリプト全文をコピー」でコピーし直して、貼り替えてから保存・再デプロイしてくれ。');
                 } else if (res.pong) {
                     statusEl.textContent = '合言葉が違う';
-                    alert('URLは合っているが、合言葉が違う。GAS側の SYNC_TOKEN と揃えてくれ。');
+                    alert('URLは合っているが、合言葉が違う。\n\n古いスクリプトが貼られている可能性がある。手順2からやり直すのが早い。');
                 } else {
                     statusEl.textContent = '応答が不正';
                     alert('想定外の応答: ' + text.slice(0, 200));
