@@ -3,8 +3,14 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sales Atelier Pro - Desktop</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1c1917">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="営業参謀">
+    <link rel="manifest" href="manifest.webmanifest">
+    <title>営業参謀 Pro</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Identity Services & Drive API -->
@@ -37,6 +43,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
+        html {
+            /* iOSでのバウンスを止め、アプリらしく見せる */
+            height: 100%;
+        }
+
         body {
             font-family: 'Noto Sans JP', sans-serif;
             background-color: #e7e5e4;
@@ -45,6 +56,46 @@
             /* Stone 900 */
             overflow: hidden;
             /* App feel */
+            overscroll-behavior: none;
+        }
+
+        /* スマホ：フォーカス時の自動ズームを防ぐ (iOSは16px未満だと拡大する) */
+        @media (max-width: 1023px) {
+
+            input,
+            select,
+            textarea {
+                font-size: 16px !important;
+            }
+
+            /* タップしやすい最低サイズを確保 */
+            button,
+            .sidebar-item,
+            a[href^="#"] {
+                -webkit-tap-highlight-color: rgba(234, 88, 12, 0.15);
+            }
+
+            /* デスクトップ前提の固定幅ダイアログを画面幅に収める */
+            dialog[open] {
+                max-width: calc(100vw - 1.5rem);
+            }
+        }
+
+        /* 横にあふれる要素はスクロールさせる (ページ自体は横スクロールさせない) */
+        .scroll-x {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .safe-bottom {
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ホバーできない端末(スマホ)では、ホバー前提の操作ボタンを常に表示する */
+        @media (hover: none) {
+            .touch-visible {
+                opacity: 1 !important;
+            }
         }
 
         .sidebar-item.active {
@@ -92,16 +143,23 @@
     </style>
 </head>
 
-<body class="flex h-screen w-screen selection:bg-orange-200 selection:text-orange-900 text-sm">
+<body class="flex h-[100dvh] w-full selection:bg-orange-200 selection:text-orange-900 text-sm">
+
+    <!-- SIDEBAR OVERLAY (mobile only) -->
+    <div id="sidebar-overlay" onclick="App.closeSidebar()"
+        class="lg:hidden fixed inset-0 bg-stone-900/60 backdrop-blur-[2px] z-30 hidden"></div>
 
     <!-- SIDEBAR -->
-    <aside class="w-64 bg-stone-900 text-stone-400 flex flex-col justify-between shrink-0 shadow-2xl z-20">
+    <aside id="sidebar"
+        class="fixed lg:static inset-y-0 left-0 w-64 max-w-[80vw] bg-stone-900 text-stone-400 flex flex-col justify-between shrink-0 shadow-2xl z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-out overflow-y-auto">
         <div>
-            <div class="h-16 flex items-center px-6 border-b border-stone-800">
+            <div class="h-16 flex items-center justify-between px-6 border-b border-stone-800">
                 <h1 class="text-stone-100 font-bold tracking-widest serif flex items-center gap-2">
                     <i class="fa-solid fa-briefcase text-orange-600"></i> 営業参謀 <span
                         class="text-[10px] text-stone-500 mt-1">PRO</span>
                 </h1>
+                <button onclick="App.closeSidebar()" class="lg:hidden text-stone-500 hover:text-stone-100 p-2 -mr-2"
+                    aria-label="メニューを閉じる"><i class="fa-solid fa-xmark fa-lg"></i></button>
             </div>
 
             <nav class="mt-6 flex flex-col gap-1 px-2">
@@ -158,7 +216,11 @@
             </nav>
         </div>
 
-        <div class="p-4 border-t border-stone-800">
+        <div class="p-4 border-t border-stone-800 safe-bottom">
+            <button onclick="Sync.syncNow(true)"
+                class="w-full flex items-center gap-3 px-4 py-2 text-stone-500 hover:text-stone-200 transition-colors">
+                <i id="sync-icon" class="fa-solid fa-rotate"></i> <span id="sync-label" class="text-xs truncate">同期</span>
+            </button>
             <button id="settings-btn" onclick="App.openSettings()"
                 class="w-full flex items-center gap-3 px-4 py-2 text-stone-500 hover:text-stone-200 transition-colors">
                 <i class="fa-solid fa-gear"></i> <span class="text-xs">システム設定</span>
@@ -169,35 +231,52 @@
     <!-- CONTENT AREA -->
     <main class="flex-1 flex flex-col min-w-0 bg-[#f5f5f4] relative">
 
-        <!-- HEADER (KPI) -->
-        <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 shrink-0 z-10">
-            <div class="text-stone-400 font-serif italic text-xs" id="header-quote">"仕事なんてのは、死ぬまでの暇つぶしだ。"</div>
+        <!-- MOBILE TOP BAR -->
+        <div class="lg:hidden h-14 bg-stone-900 text-stone-100 flex items-center justify-between px-2 shrink-0 z-20">
+            <button onclick="App.openSidebar()" class="p-3 text-stone-300 hover:text-white" aria-label="メニューを開く">
+                <i class="fa-solid fa-bars fa-lg"></i>
+            </button>
+            <div class="flex items-center gap-2 font-bold serif tracking-wider truncate">
+                <i class="fa-solid fa-briefcase text-orange-600"></i>
+                <span id="mobile-view-title" class="truncate">司令室</span>
+            </div>
+            <button onclick="Sync.syncNow(true)" class="p-3 text-stone-300 hover:text-white" aria-label="同期する">
+                <i id="sync-icon-mobile" class="fa-solid fa-rotate"></i>
+            </button>
+        </div>
 
-            <div class="flex gap-8 text-xs">
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">織込金額</span>
-                    <span class="font-bold text-stone-700 font-mono text-base" data-kpi="plan">---</span>
+        <!-- HEADER (KPI) -->
+        <header
+            class="bg-white border-b border-stone-200 flex items-center justify-between gap-4 px-4 lg:px-8 py-2 lg:h-16 lg:py-0 shrink-0 z-10">
+            <div class="hidden lg:block text-stone-400 font-serif italic text-xs" id="header-quote">"仕事なんてのは、死ぬまでの暇つぶしだ。"
+            </div>
+
+            <div class="flex w-full lg:w-auto justify-between lg:justify-end gap-4 lg:gap-8 text-xs">
+                <div class="flex flex-col items-start lg:items-end min-w-0">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider truncate">織込金額</span>
+                    <span class="font-bold text-stone-700 font-mono text-sm lg:text-base" data-kpi="plan">---</span>
                 </div>
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">図面指定金額</span>
-                    <span class="font-bold text-stone-700 font-mono text-base" data-kpi="spec">---</span>
+                <div class="flex flex-col items-start lg:items-end min-w-0">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider truncate">図面指定金額</span>
+                    <span class="font-bold text-stone-700 font-mono text-sm lg:text-base" data-kpi="spec">---</span>
                 </div>
-                <div class="flex flex-col items-end">
-                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider">NET金額</span>
-                    <span class="font-bold text-orange-600 font-mono text-base" data-kpi="net">---</span>
+                <div class="flex flex-col items-start lg:items-end min-w-0">
+                    <span class="text-[10px] text-stone-400 font-bold uppercase tracking-wider truncate">NET金額</span>
+                    <span class="font-bold text-orange-600 font-mono text-sm lg:text-base" data-kpi="net">---</span>
                 </div>
             </div>
         </header>
 
         <!-- VIEW CONTAINER -->
-        <div id="view-container" class="flex-1 overflow-y-auto p-0 relative scroll-smooth flex flex-col">
+        <div id="view-container"
+            class="flex-1 overflow-y-auto overflow-x-hidden p-0 relative scroll-smooth flex flex-col safe-bottom">
             <!-- Content Injected Here -->
         </div>
 
         <!-- LOADING OVERLAY -->
         <div id="loading"
             class="hidden absolute inset-0 bg-stone-900/20 backdrop-blur-[2px] flex items-center justify-center z-50">
-            <div class="bg-white p-6 rounded shadow-xl flex items-center gap-4">
+            <div class="bg-white p-4 lg:p-6 rounded shadow-xl flex items-center gap-4">
                 <i class="fa-solid fa-circle-notch fa-spin text-orange-600 text-2xl"></i>
                 <span class="font-serif text-stone-700">思考中...</span>
             </div>
@@ -245,6 +324,342 @@
                         content,
                     }),
                 }).catch(e => console.warn("[DriveLogger] Failed to save content:", e));
+            }
+        };
+
+        // --- 端末間同期 (Google Apps Script バックエンド) ---
+        // スマホとパソコンで同じ内容を見るための仕組み。
+        // 保存先URLと合言葉はこの端末のlocalStorageにだけ置き、コードには一切埋め込まない。
+        const SYNC_CONFIG_KEY = 'sales_atelier_sync_config';
+
+        const Sync = {
+            cfg: { url: '', token: '', deviceName: '', enabled: false },
+            baseUpdatedAt: 0,      // サーバーと内容が一致していた時刻
+            dirty: false,          // この端末に未送信の変更があるか
+            lastSyncAt: 0,
+            status: 'off',         // off | idle | syncing | ok | error | conflict
+            message: '未設定',
+            pushTimer: null,
+            pollTimer: null,
+            inFlight: false,
+            pendingConflict: null,
+
+            /* ---------- 設定の読み書き ---------- */
+            loadConfig() {
+                try {
+                    const raw = localStorage.getItem(SYNC_CONFIG_KEY);
+                    if (raw) {
+                        const c = JSON.parse(raw);
+                        this.cfg = {
+                            url: c.url || '',
+                            token: c.token || '',
+                            deviceName: c.deviceName || '',
+                            enabled: c.enabled !== false
+                        };
+                        this.baseUpdatedAt = Number(c.baseUpdatedAt || 0);
+                        this.dirty = !!c.dirty;
+                        this.lastSyncAt = Number(c.lastSyncAt || 0);
+                    }
+                } catch (e) {
+                    console.warn('[Sync] 設定の読み込みに失敗', e);
+                }
+            },
+
+            saveConfig() {
+                try {
+                    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify({
+                        ...this.cfg,
+                        baseUpdatedAt: this.baseUpdatedAt,
+                        dirty: this.dirty,
+                        lastSyncAt: this.lastSyncAt
+                    }));
+                } catch (e) {
+                    console.warn('[Sync] 設定の保存に失敗', e);
+                }
+            },
+
+            isConfigured() {
+                return !!(this.cfg.enabled && this.cfg.url && this.cfg.token);
+            },
+
+            defaultDeviceName() {
+                const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
+                const isTablet = /iPad|Android(?!.+Mobile)/i.test(navigator.userAgent);
+                return isPhone ? 'スマホ' : (isTablet ? 'タブレット' : 'パソコン');
+            },
+
+            /* ---------- 起動 ---------- */
+            init() {
+                this.loadConfig();
+                if (!this.cfg.deviceName) this.cfg.deviceName = this.defaultDeviceName();
+                this.render();
+                if (!this.isConfigured()) return;
+
+                this.syncNow(false);
+
+                // 画面に戻ってきたとき / 通信が復活したときに取り直す
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') this.syncNow(false);
+                });
+                window.addEventListener('online', () => this.syncNow(false));
+
+                // 閉じる直前に未送信分を投げておく(応答は待たない)
+                window.addEventListener('pagehide', () => this.flushOnExit());
+
+                this.pollTimer = setInterval(() => {
+                    if (document.visibilityState === 'visible') this.syncNow(false);
+                }, 60000);
+            },
+
+            /* ---------- 変更の検知 ---------- */
+            markDirty() {
+                if (!this.isConfigured()) return;
+                this.dirty = true;
+                this.saveConfig();
+                this.setStatus('idle', '未送信の変更あり');
+                clearTimeout(this.pushTimer);
+                this.pushTimer = setTimeout(() => this.syncNow(false), 2500);
+            },
+
+            /* ---------- 同期本体 ---------- */
+            async syncNow(manual) {
+                if (!this.isConfigured()) {
+                    if (manual) {
+                        alert('同期先がまだ設定されていない。システム設定 →「端末間の同期」から登録してくれ。');
+                        App.openSettings();
+                    }
+                    return;
+                }
+                if (this.inFlight) return;
+                // 入力中に自動同期で画面が描き直されると、書きかけが消える。手が止まるまで待つ。
+                if (!manual && this.isTyping()) {
+                    clearTimeout(this.pushTimer);
+                    this.pushTimer = setTimeout(() => this.syncNow(false), 3000);
+                    return;
+                }
+                if (!navigator.onLine) {
+                    this.setStatus('error', 'オフライン');
+                    if (manual) alert('今はネットにつながっていない。電波の入る場所でもう一度。');
+                    return;
+                }
+
+                this.inFlight = true;
+                clearTimeout(this.pushTimer);
+                this.setStatus('syncing', '同期中...');
+                try {
+                    if (this.dirty) {
+                        const res = await this.push(false);
+                        if (res.conflict) { this.handleConflict(res); return; }
+                        this.setStatus('ok', this.timeLabel() + ' 送信済み');
+                    } else {
+                        const res = await this.pull();
+                        if (!res.exists) {
+                            await this.push(true);
+                            this.setStatus('ok', this.timeLabel() + ' 送信済み');
+                        } else if (res.updatedAt > this.baseUpdatedAt) {
+                            Store.applyRemote(res.state);
+                            this.baseUpdatedAt = res.updatedAt;
+                            this.dirty = false;
+                            this.saveConfig();
+                            App.route();
+                            this.setStatus('ok', (res.deviceName ? res.deviceName + 'の' : '') + '変更を取り込んだ');
+                            if (manual) alert('他の端末の内容を取り込んだ。');
+                        } else {
+                            this.setStatus('ok', this.timeLabel() + ' 最新');
+                            if (manual) alert('すでに最新だ。');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Sync] 失敗', e);
+                    this.setStatus('error', '同期エラー');
+                    if (manual) alert('同期に失敗した。\n\n' + (e && e.message ? e.message : e));
+                } finally {
+                    this.inFlight = false;
+                }
+            },
+
+            /** 入力欄に触っている最中かどうか */
+            isTyping() {
+                const el = document.activeElement;
+                if (!el) return false;
+                const tag = (el.tagName || '').toLowerCase();
+                return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable === true;
+            },
+
+            async push(force) {
+                const res = await this.request('POST', {
+                    action: 'save',
+                    token: this.cfg.token,
+                    force: !!force,
+                    baseUpdatedAt: this.baseUpdatedAt,
+                    deviceName: this.cfg.deviceName || this.defaultDeviceName(),
+                    state: Store.exportForSync()
+                });
+                if (!res.ok) throw new Error(this.describeError(res));
+                if (res.conflict) return res;
+                this.baseUpdatedAt = res.updatedAt;
+                this.dirty = false;
+                this.lastSyncAt = Date.now();
+                this.saveConfig();
+                return res;
+            },
+
+            async pull() {
+                const res = await this.request('GET', { action: 'load', token: this.cfg.token });
+                if (!res.ok) throw new Error(this.describeError(res));
+                this.lastSyncAt = Date.now();
+                this.saveConfig();
+                return res;
+            },
+
+            async request(method, payload) {
+                const url = (this.cfg.url || '').trim();
+                if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) {
+                    throw new Error('同期先URLの形が違う。script.google.com の /exec で終わるURLを入れてくれ。');
+                }
+                let r;
+                if (method === 'GET') {
+                    const q = new URLSearchParams({ action: payload.action, token: payload.token, t: String(Date.now()) });
+                    r = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + q.toString(), { method: 'GET', redirect: 'follow' });
+                } else {
+                    r = await fetch(url, {
+                        method: 'POST',
+                        // ※ application/json にするとCORSのプリフライトが飛び、GASが応答できず必ず失敗する
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify(payload),
+                        redirect: 'follow'
+                    });
+                }
+                const text = await r.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('同期先から想定外の応答が返ってきた。デプロイ設定の「アクセスできるユーザー: 全員」と、URLが /exec で終わっているかを確認してくれ。');
+                }
+            },
+
+            describeError(res) {
+                if (res && res.error === 'AUTH') return '合言葉が違う。GAS側の SYNC_TOKEN と設定画面の合言葉を揃えてくれ。';
+                if (res && res.message) return res.message;
+                if (res && res.error) return res.error;
+                return '原因不明のエラー';
+            },
+
+            /** タブを閉じる直前の駆け込み送信。応答は受け取れないので競合判定はしない。 */
+            flushOnExit() {
+                if (!this.isConfigured() || !this.dirty) return;
+                try {
+                    const body = JSON.stringify({
+                        action: 'save',
+                        token: this.cfg.token,
+                        force: false,
+                        baseUpdatedAt: this.baseUpdatedAt,
+                        deviceName: this.cfg.deviceName || this.defaultDeviceName(),
+                        state: Store.exportForSync()
+                    });
+                    navigator.sendBeacon(this.cfg.url, new Blob([body], { type: 'text/plain;charset=utf-8' }));
+                } catch (e) { /* 失敗しても手元のデータは残っているので次回同期で送られる */ }
+            },
+
+            /* ---------- 競合 ---------- */
+            handleConflict(res) {
+                this.pendingConflict = res;
+                this.setStatus('conflict', '内容がぶつかった');
+                document.getElementById('modal-root').innerHTML = this.renderConflictModal(res);
+            },
+
+            renderConflictModal(res) {
+                const when = res.updatedAt ? new Date(res.updatedAt).toLocaleString('ja-JP') : '不明';
+                const who = res.deviceName || '別の端末';
+                return `
+                    <div class="fixed inset-0 bg-stone-900/90 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto">
+                        <div class="bg-white p-4 lg:p-8 w-full max-w-[520px] max-h-[90dvh] overflow-y-auto shadow-2xl border-t-4 border-orange-600">
+                            <h2 class="font-bold text-lg mb-2 serif"><i class="fa-solid fa-code-branch text-orange-600 mr-2"></i>内容がぶつかった</h2>
+                            <p class="text-sm text-stone-600 leading-relaxed mb-4">
+                                <b>${who}</b> が ${when} に保存した内容が先に入っている。<br>
+                                この端末にも未送信の変更がある。どちらを残す？
+                            </p>
+                            <div class="text-[11px] text-stone-500 bg-stone-50 border border-stone-200 p-3 mb-6 leading-relaxed">
+                                どちらを選んでも、選ばなかった側の内容はGoogleドライブの
+                                <span class="font-mono">sales-atelier-state.backup-日付.json</span> に日次で残っている。
+                            </div>
+                            <div class="space-y-3">
+                                <button onclick="Sync.resolveConflict('local')" class="w-full bg-stone-900 text-white py-3 font-bold text-sm hover:bg-orange-600 transition-colors">
+                                    この端末の内容を残す（相手を上書き）
+                                </button>
+                                <button onclick="Sync.resolveConflict('remote')" class="w-full bg-white border-2 border-stone-300 text-stone-700 py-3 font-bold text-sm hover:border-orange-400 hover:text-orange-700 transition-colors">
+                                    ${who}の内容を取り込む（この端末の変更は消える）
+                                </button>
+                                <button onclick="App.closeModal()" class="w-full text-stone-400 py-2 text-xs hover:text-stone-700">
+                                    あとで決める
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+            },
+
+            async resolveConflict(choice) {
+                const res = this.pendingConflict;
+                App.closeModal();
+                if (!res) return;
+                this.pendingConflict = null;
+
+                if (choice === 'remote') {
+                    Store.applyRemote(res.state);
+                    this.baseUpdatedAt = res.updatedAt;
+                    this.dirty = false;
+                    this.saveConfig();
+                    App.route();
+                    this.setStatus('ok', '取り込んだ');
+                    return;
+                }
+
+                this.setStatus('syncing', '送信中...');
+                try {
+                    this.baseUpdatedAt = res.updatedAt;   // 相手を見た上で上書きする
+                    await this.push(true);
+                    this.setStatus('ok', this.timeLabel() + ' 送信済み');
+                } catch (e) {
+                    this.setStatus('error', '同期エラー');
+                    alert('上書きに失敗した。\n\n' + (e && e.message ? e.message : e));
+                }
+            },
+
+            /* ---------- 表示 ---------- */
+            timeLabel() {
+                const d = new Date();
+                return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+            },
+
+            setStatus(status, message) {
+                this.status = status;
+                this.message = message;
+                this.render();
+            },
+
+            render() {
+                if (!this.isConfigured()) {
+                    this.status = 'off';
+                    this.message = '同期は未設定';
+                }
+                const map = {
+                    off: { icon: 'fa-rotate', cls: 'text-stone-500', spin: false },
+                    idle: { icon: 'fa-cloud-arrow-up', cls: 'text-amber-400', spin: false },
+                    syncing: { icon: 'fa-circle-notch', cls: 'text-stone-300', spin: true },
+                    ok: { icon: 'fa-cloud-arrow-up', cls: 'text-emerald-400', spin: false },
+                    error: { icon: 'fa-triangle-exclamation', cls: 'text-red-400', spin: false },
+                    conflict: { icon: 'fa-code-branch', cls: 'text-orange-400', spin: false }
+                };
+                const v = map[this.status] || map.off;
+                ['sync-icon', 'sync-icon-mobile'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.className = `fa-solid ${v.icon} ${v.cls}` + (v.spin ? ' fa-spin' : '');
+                });
+                const label = document.getElementById('sync-label');
+                if (label) label.textContent = this.message;
+                const settingsStatus = document.getElementById('sync-settings-status');
+                if (settingsStatus) settingsStatus.textContent = this.message;
             }
         };
 
@@ -315,13 +730,37 @@
                 this.refreshStreak(false);
                 try { this.updateHeader(); } catch (e) { }
             },
-            save() {
+            /**
+             * @param {{sync?: boolean}} [opts] sync:false を渡すと、同期先への送信を予約しない。
+             *   (サーバーから受け取った内容を書き戻すときに使う)
+             */
+            save(opts) {
                 try {
                     localStorage.setItem(APP_KEY, JSON.stringify(this.state));
                 } catch (e) {
                     console.warn('Storage unavailable, state not persisted', e);
                 }
                 this.updateHeader();
+                if (!opts || opts.sync !== false) {
+                    try { Sync.markDirty(); } catch (e) { /* 同期未設定なら何もしない */ }
+                }
+            },
+
+            /** 同期で送る内容。APIキーは端末ごとの設定なので送らない。 */
+            exportForSync() {
+                const copy = JSON.parse(JSON.stringify(this.state));
+                if (copy.userSettings) delete copy.userSettings.apiKey;
+                return copy;
+            },
+
+            /** サーバーから受け取った内容をこの端末に反映する。APIキーは手元のものを守る。 */
+            applyRemote(remoteState) {
+                if (!remoteState || typeof remoteState !== 'object') return;
+                const localApiKey = (this.state.userSettings && this.state.userSettings.apiKey) || '';
+                const merged = { ...this.state, ...remoteState };
+                merged.userSettings = { ...(remoteState.userSettings || {}), apiKey: localApiKey };
+                this.state = merged;
+                this.save({ sync: false });
             },
             update(k, v) {
                 this.state[k] = v;
@@ -554,10 +993,12 @@
             selectedId: null,
 
             render() {
+                // スマホは画面が狭いので、一覧と詳細を同時に出さず切り替える
+                const showList = this.mode === 'list';
                 return `
                     <div class="h-full flex overflow-hidden animate-fade-in bg-[#f5f5f4]">
                         <!-- Left: List -->
-                        <div class="w-1/3 flex flex-col border-r border-stone-200 bg-white">
+                        <div class="${showList ? 'flex' : 'hidden'} lg:flex w-full lg:w-1/3 flex-col border-r border-stone-200 bg-white">
                             <div class="p-4 border-b border-stone-200 flex justify-between items-center bg-stone-50">
                                 <h2 class="font-bold text-stone-700 serif"><i class="fa-solid fa-book-journal-whills mr-2 text-orange-600"></i>知識の倉庫</h2>
                                 <button onclick="WarehouseView.create()" class="text-xs bg-stone-900 text-white px-3 py-1.5 font-bold hover:bg-orange-600 transition-colors shadow-sm">
@@ -580,7 +1021,7 @@
                         </div>
 
                         <!-- Right: Detail/Input -->
-                        <div class="flex-1 flex flex-col bg-[#f5f5f4] relative" id="warehouse-detail-container">
+                        <div class="${showList ? 'hidden' : 'flex'} lg:flex flex-1 flex-col bg-[#f5f5f4] relative overflow-y-auto" id="warehouse-detail-container">
                             ${this.renderDetail()}
                         </div>
                     </div>
@@ -606,19 +1047,25 @@
                             ${l.aiComment ? '<div class="mt-2 text-[10px] text-orange-600 font-bold"><i class="fa-solid fa-check"></i> 陣内確認済</div>' : '<div class="mt-2 text-[10px] text-stone-300"><i class="fa-solid fa-spinner"></i> 未確認</div>'}
                         </div>
                     `;
-                }).join('') || '<div class="p-8 text-center text-stone-400 text-xs italic">記憶庫は空だ。</div>';
+                }).join('') || '<div class="p-4 lg:p-8 text-center text-stone-400 text-xs italic">記憶庫は空だ。</div>';
             },
 
             renderDetail() {
                 const logs = Store.state.warehouseLogs || [];
                 const selectedLog = logs.find(l => l.id === this.selectedId);
+                const backBar = `
+                    <div class="lg:hidden sticky top-0 z-10 bg-[#f5f5f4]/95 backdrop-blur px-4 py-2 border-b border-stone-200">
+                        <button onclick="WarehouseView.cancel()" class="text-xs font-bold text-stone-500 hover:text-orange-600">
+                            <i class="fa-solid fa-arrow-left mr-1"></i>一覧へ戻る
+                        </button>
+                    </div>`;
 
                 if (this.mode === 'create') {
-                    return `
-                        <div class="p-8 max-w-2xl mx-auto w-full animate-slide-in-right">
+                    return backBar + `
+                        <div class="p-4 lg:p-8 max-w-2xl mx-auto w-full animate-slide-in-right">
                             <h3 class="text-sm font-bold text-stone-400 uppercase tracking-widest mb-8 text-center">新しい記憶を刻む</h3>
                             
-                            <div class="bg-white p-8 shadow-sm border border-stone-200 space-y-6 relative">
+                            <div class="bg-white p-4 lg:p-8 shadow-sm border border-stone-200 space-y-6 relative">
                                 <!-- Decorative Tape -->
                                 <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-32 h-6 bg-orange-100/50 backdrop-blur border border-white/50 rotate-[-1deg] shadow-sm"></div>
 
@@ -632,7 +1079,7 @@
                                 </div>
                                 <div class="flex justify-between items-center pt-4">
                                     <button onclick="WarehouseView.cancel()" class="text-stone-400 hover:text-stone-600 text-xs font-bold">キャンセル</button>
-                                    <button onclick="App.saveWarehouseLog()" class="bg-stone-900 text-white px-8 py-3 font-bold shadow-lg hover:bg-orange-600 transition-transform active:scale-95">
+                                    <button onclick="App.saveWarehouseLog()" class="bg-stone-900 text-white px-4 lg:px-8 py-3 font-bold shadow-lg hover:bg-orange-600 transition-transform active:scale-95">
                                         記録して陣内に投げる
                                     </button>
                                 </div>
@@ -642,26 +1089,26 @@
                 }
 
                 if (selectedLog) {
-                    return `
-                        <div class="flex-1 overflow-y-auto p-12">
+                    return backBar + `
+                        <div class="flex-1 lg:overflow-y-auto p-4 lg:p-12">
                             <div class="max-w-3xl mx-auto space-y-8 animate-fade-in">
                                 <!-- Header -->
                                 <div class="border-b border-stone-300 pb-4 mb-8">
                                     <div class="flex justify-between items-end mb-2">
-                                        <h1 class="text-3xl font-bold text-stone-900 serif leading-tight">${selectedLog.topic}</h1>
+                                        <h1 class="text-2xl lg:text-3xl font-bold text-stone-900 serif leading-tight">${selectedLog.topic}</h1>
                                         <span class="text-xs font-mono text-stone-400 shrink-0 mb-1">${new Date(selectedLog.date).toLocaleString()}</span>
                                     </div>
                                 </div>
 
                                 <!-- Content -->
-                                <div class="bg-white p-8 border border-stone-200 shadow-sm text-stone-800 leading-loose text-base whitespace-pre-wrap font-serif min-h-[200px]">
+                                <div class="bg-white p-4 lg:p-8 border border-stone-200 shadow-sm text-stone-800 leading-loose text-base whitespace-pre-wrap font-serif min-h-[200px]">
                                     ${selectedLog.detail}
                                 </div>
 
                                 <!-- AI Comment -->
                                 <div class="relative mt-12 pt-8">
                                     <div class="absolute inset-0 bg-stone-200/50 transform -skew-y-1"></div>
-                                    <div class="relative bg-stone-900 text-stone-300 p-8 shadow-xl border-l-4 border-orange-600">
+                                    <div class="relative bg-stone-900 text-stone-300 p-4 lg:p-8 shadow-xl border-l-4 border-orange-600">
                                         <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-comment-dots"></i></div>
                                         <h3 class="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                                             <i class="fa-solid fa-user-secret"></i> 陣内のコメント
@@ -732,7 +1179,7 @@
                             ${t.microSteps?.length ? `<div class="mt-2 text-xs text-stone-500 space-y-1">${t.microSteps.slice(0, 2).map(m => `<div class="flex items-center gap-2"><i class="fa-solid fa-caret-right text-orange-400"></i><span>${m}</span></div>`).join('')}</div>` : ''}
                         </div>
                     </div>`
-                ).join('') || '<div class="p-8 text-center text-stone-400 serif italic">今日はまだ作戦が白い。30秒だけでも埋めていこう。</div>';
+                ).join('') || '<div class="p-4 lg:p-8 text-center text-stone-400 serif italic">今日はまだ作戦が白い。30秒だけでも埋めていこう。</div>';
                 const customerCards = focusCustomers.map(item => `
                     <a href="#sfa_detail?id=${item.id}" class="block border border-stone-200 bg-white p-4 hover:border-orange-300 hover:bg-orange-50/40 transition-colors">
                         <div class="flex items-center justify-between gap-3 mb-2">
@@ -745,7 +1192,7 @@
                             <span>${item.dateLabel}</span>
                         </div>
                     </a>
-                `).join('') || '<div class="border border-dashed border-stone-200 p-6 text-sm text-stone-400 text-center">今日つつくべき顧客はまだ静かだ。</div>';
+                `).join('') || '<div class="border border-dashed border-stone-200 p-4 lg:p-6 text-sm text-stone-400 text-center">今日つつくべき顧客はまだ静かだ。</div>';
                 const badgeCards = recentBadges.map(b => `
                     <div class="bg-stone-900 text-stone-100 p-4 border-l-4 border-orange-500">
                         <div class="text-[10px] uppercase tracking-[0.25em] text-orange-300 mb-2">Unlocked</div>
@@ -754,13 +1201,13 @@
                 `).join('') || '<div class="bg-stone-100 text-stone-500 p-4 text-sm">続けた記録がここに並ぶ。</div>';
 
                 return `
-                    <div class="p-8 space-y-6 pb-12 animate-fade-in">
+                    <div class="p-4 lg:p-8 space-y-6 pb-12 animate-fade-in">
                         <div class="bg-[linear-gradient(135deg,#111827_0%,#1f2937_55%,#312e81_100%)] text-stone-100 border border-stone-800 shadow-2xl overflow-hidden">
-                            <div class="grid grid-cols-12 gap-6 p-8">
+                            <div class="grid grid-cols-12 gap-6 p-4 lg:p-8">
                                 <div class="col-span-12 lg:col-span-7 space-y-5">
                                     <div class="text-[11px] uppercase tracking-[0.35em] text-orange-300">Today Command</div>
                                     <div>
-                                        <h2 class="text-4xl font-bold serif leading-tight">今日の司令室</h2>
+                                        <h2 class="text-2xl lg:text-4xl font-bold serif leading-tight">今日の司令室</h2>
                                         <p class="text-sm text-stone-300 mt-2">${App.formatJapaneseDate(new Date())}。開いた瞬間に、今日の勝ち筋だけ見えるようにした。</p>
                                     </div>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -816,7 +1263,7 @@
                                     <div>${tasks}</div>
                                 </div>
 
-                                <div class="bg-stone-50 p-6 border border-stone-200">
+                                <div class="bg-stone-50 p-4 lg:p-6 border border-stone-200">
                                     <div class="flex items-center justify-between mb-4">
                                         <h3 class="font-bold text-stone-800 serif">今日つつく顧客</h3>
                                         <a href="#sfa" class="text-xs text-stone-400 hover:text-orange-600">台帳を見る</a>
@@ -826,13 +1273,13 @@
                             </div>
 
                             <div class="col-span-12 lg:col-span-5 space-y-6">
-                                <div class="bg-gradient-to-br from-orange-50 to-stone-50 border border-orange-200 p-6">
+                                <div class="bg-gradient-to-br from-orange-50 to-stone-50 border border-orange-200 p-4 lg:p-6">
                                     <div class="text-[10px] uppercase tracking-[0.3em] text-orange-700 mb-2">今日の意識</div>
                                     <div class="text-sm font-bold text-stone-800 mb-3">${DashboardView.getConsciousnessTip()}</div>
                                     <div class="text-sm text-orange-900 leading-relaxed">${DashboardView.getPersonalTip()}</div>
                                 </div>
 
-                                <div class="bg-white border border-stone-200 p-6">
+                                <div class="bg-white border border-stone-200 p-4 lg:p-6">
                                     <div class="flex items-center justify-between mb-4">
                                         <h3 class="font-bold text-stone-800 serif">積み上がり</h3>
                                         <a href="#secretary" class="text-xs text-emerald-700 font-bold">AI秘書へ</a>
@@ -909,10 +1356,10 @@
 
                 if (this.mode === 'quick') {
                     return `
-                        <div class="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                        <div class="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20 p-4 lg:p-8">
                             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div>
-                                    <h2 class="text-3xl font-bold text-stone-800 serif">朝の作戦</h2>
+                                    <h2 class="text-2xl lg:text-3xl font-bold text-stone-800 serif">朝の作戦</h2>
                                     <p class="text-stone-500 text-sm mt-1">続けることを最優先にした、30秒モード。</p>
                                 </div>
                                 <div class="inline-flex border border-stone-300 bg-white self-start">
@@ -921,10 +1368,10 @@
                                 </div>
                             </div>
 
-                            <div class="bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_45%,#f5f5f4_100%)] border border-orange-200 p-8 shadow-sm">
+                            <div class="bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_45%,#f5f5f4_100%)] border border-orange-200 p-4 lg:p-8 shadow-sm">
                                 <div class="text-[10px] uppercase tracking-[0.3em] text-orange-700 mb-3">Quick Start</div>
                                 <label class="block text-xs font-bold text-stone-500 uppercase tracking-widest mb-2">今日の勝利条件</label>
-                                <input type="text" id="quick-win" value="${k.winningCondition || ''}" class="w-full text-3xl font-bold text-stone-900 border-b-2 border-orange-200 focus:border-orange-600 outline-none pb-3 bg-transparent" placeholder="例: A社へ見積提出を終える">
+                                <input type="text" id="quick-win" value="${k.winningCondition || ''}" class="w-full text-2xl lg:text-3xl font-bold text-stone-900 border-b-2 border-orange-200 focus:border-orange-600 outline-none pb-3 bg-transparent" placeholder="例: A社へ見積提出を終える">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                                     <div>
                                         <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日のテーマ</label>
@@ -937,7 +1384,7 @@
                                 </div>
                                 <div class="flex items-center justify-between mt-8">
                                     <p class="text-xs text-stone-500">雑でもいい。空白で止まらないことを優先する。</p>
-                                    <button onclick="App.runQuickMorningRoutine()" class="bg-orange-600 text-white px-8 py-4 font-bold tracking-widest hover:bg-orange-500 shadow-xl transition-transform active:scale-95">
+                                    <button onclick="App.runQuickMorningRoutine()" class="bg-orange-600 text-white px-4 lg:px-8 py-4 font-bold tracking-widest hover:bg-orange-500 shadow-xl transition-transform active:scale-95">
                                         30秒で始める
                                     </button>
                                 </div>
@@ -948,7 +1395,7 @@
 
                 if (this.step === 1) {
                     return `
-                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-4 lg:p-8">
                             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div class="text-center md:text-left">
                                     <h2 class="text-2xl font-bold text-stone-800 serif">朝の作戦会議 (STEP 1/2)</h2>
@@ -975,7 +1422,7 @@
                                 </div>
                             </div>
 
-                            <div class="bg-white p-6 shadow-sm border border-stone-200">
+                            <div class="bg-white p-4 lg:p-6 shadow-sm border border-stone-200">
                                 <h3 class="font-bold text-stone-700 mb-4 text-sm flex items-center"><i class="fa-solid fa-list-ol mr-2"></i>やるべきこと（箇条書き）</h3>
                                 <textarea id="inp-tasks" class="w-full h-40 p-4 bg-stone-50 text-sm border border-stone-200 focus:outline-none focus:border-stone-400 transition-colors" placeholder="・A社へ提案書送付&#13;&#10;・B現場の寸法確認">${draft}</textarea>
                             </div>
@@ -989,7 +1436,7 @@
                     `;
                 } else {
                     return `
-                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-8">
+                        <div class="max-w-3xl mx-auto space-y-8 animate-fade-in pb-20 p-4 lg:p-8">
                             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                 <div class="text-center md:text-left">
                                     <h2 class="text-2xl font-bold text-stone-800 serif">朝の作戦会議 (STEP 2/2)</h2>
@@ -1001,13 +1448,13 @@
                                 </div>
                             </div>
 
-                            <div class="bg-white p-8 shadow-sm border-t-4 border-indigo-900">
+                            <div class="bg-white p-4 lg:p-8 shadow-sm border-t-4 border-indigo-900">
                                 <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日のテーマ (Theme)</label>
                                 <input type="text" id="inp-theme" value="${k.theme || ''}" class="w-full text-2xl font-bold text-indigo-900 border-b-2 border-indigo-100 focus:border-indigo-900 outline-none pb-2 placeholder-indigo-100" placeholder="例: スピード決着">
                                 <p class="text-[10px] text-stone-400 mt-2">一日を通じて意識するスタンス。</p>
                             </div>
 
-                            <div class="bg-white p-8 shadow-sm border-t-4 border-orange-600">
+                            <div class="bg-white p-4 lg:p-8 shadow-sm border-t-4 border-orange-600">
                                 <label class="block text-xs font-bold text-stone-400 uppercase tracking-widest mb-2">今日の勝利条件 (Winning Condition)</label>
                                 <input type="text" id="inp-win" value="${k.winningCondition || ''}" class="w-full text-2xl font-bold text-stone-800 border-b-2 border-orange-100 focus:border-orange-600 outline-none pb-2 placeholder-stone-200" placeholder="例: 見積提出3件完了">
                                 <p class="text-[10px] text-stone-400 mt-2">「これを達成したら今日は勝ち」と言える具体的な成果。</p>
@@ -1057,12 +1504,12 @@
                 `).join('');
 
                 return `
-                    <div class="max-w-6xl mx-auto p-8 pb-16 animate-fade-in space-y-6">
-                        <div class="bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_55%,#f5f5f4_100%)] border border-emerald-200 p-8">
+                    <div class="max-w-6xl mx-auto p-4 lg:p-8 pb-16 animate-fade-in space-y-6">
+                        <div class="bg-[linear-gradient(135deg,#ecfdf5_0%,#ffffff_55%,#f5f5f4_100%)] border border-emerald-200 p-4 lg:p-8">
                             <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
                                 <div>
                                     <div class="text-[10px] uppercase tracking-[0.35em] text-emerald-700 mb-3">Mode 07</div>
-                                    <h2 class="text-3xl font-bold text-stone-900 serif">AI秘書</h2>
+                                    <h2 class="text-2xl lg:text-3xl font-bold text-stone-900 serif">AI秘書</h2>
                                     <p class="text-sm text-stone-600 mt-2">相談相手というより、今日の優先順位を静かに整理する秘書モード。</p>
                                 </div>
                                 <button onclick="App.generateSecretaryBrief()" class="bg-emerald-700 text-white px-6 py-3 font-bold hover:bg-emerald-600 transition-colors shadow-lg">
@@ -1073,21 +1520,21 @@
 
                         <div class="grid grid-cols-12 gap-6">
                             <div class="col-span-12 lg:col-span-7 space-y-6">
-                                <div class="bg-white border border-stone-200 p-6">
+                                <div class="bg-white border border-stone-200 p-4 lg:p-6">
                                     <div class="text-[10px] uppercase tracking-[0.3em] text-emerald-700 mb-3">Summary</div>
                                     <p class="text-lg leading-relaxed text-stone-800 serif">${brief.summary}</p>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div class="bg-white border border-stone-200 p-6">
+                                    <div class="bg-white border border-stone-200 p-4 lg:p-6">
                                         <div class="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-4">優先タスク</div>
                                         ${this.renderList(brief.priorities, 'まだ整理されていない。')}
                                     </div>
-                                    <div class="bg-white border border-stone-200 p-6">
+                                    <div class="bg-white border border-stone-200 p-4 lg:p-6">
                                         <div class="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-4">先回り連絡</div>
                                         ${this.renderList(brief.followUps, '今すぐ追う相手はまだ少ない。')}
                                     </div>
                                 </div>
-                                <div class="bg-stone-900 text-stone-100 p-6 border-l-4 border-emerald-400">
+                                <div class="bg-stone-900 text-stone-100 p-4 lg:p-6 border-l-4 border-emerald-400">
                                     <div class="flex items-center justify-between gap-4 mb-3">
                                         <div class="text-[10px] uppercase tracking-[0.3em] text-emerald-300">Draft</div>
                                         <button onclick="navigator.clipboard.writeText(document.getElementById('secretary-draft').innerText); alert('コピーした。')" class="text-xs text-emerald-300 font-bold hover:text-white">コピー</button>
@@ -1096,11 +1543,11 @@
                                 </div>
                             </div>
                             <div class="col-span-12 lg:col-span-5 space-y-6">
-                                <div class="bg-stone-50 border border-stone-200 p-6">
+                                <div class="bg-stone-50 border border-stone-200 p-4 lg:p-6">
                                     <div class="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-4">今日見る顧客</div>
                                     <div class="space-y-4">${focusCards || '<div class="text-sm text-stone-400">台帳が静かだ。</div>'}</div>
                                 </div>
-                                <div class="bg-white border border-stone-200 p-6">
+                                <div class="bg-white border border-stone-200 p-4 lg:p-6">
                                     <div class="text-[10px] uppercase tracking-[0.3em] text-stone-400 mb-4">今の下敷き</div>
                                     <div class="space-y-3 text-sm text-stone-600">
                                         <div>テーマ: <span class="font-bold text-stone-800">${Store.state.dailyKpi.theme || '未設定'}</span></div>
@@ -1140,9 +1587,12 @@
                     const contacts = (c.contacts || []).map(p => p.name).join(', ').substring(0, 30) + ((c.contacts?.length || 0) > 2 ? '...' : '');
                     return `
                     <tr onclick="location.hash='#sfa_detail?id=${c.id}'" class="border-b border-stone-200 hover:bg-orange-50 cursor-pointer transition-colors group text-sm">
-                        <td class="py-4 px-4 font-bold text-stone-800 text-base">${c.name}</td>
-                        <td class="py-4 px-4 text-stone-500 text-xs">${contacts || '<span class="text-stone-300">-</span>'}</td>
-                        <td class="py-4 px-4 text-stone-500 text-xs">${c.lastVisit || '未訪問'}</td>
+                        <td class="py-4 px-4 font-bold text-stone-800 text-base">
+                            ${c.name}
+                            <div class="md:hidden mt-1 font-normal text-xs text-stone-500">${contacts || '担当者未登録'}<span class="sm:hidden"> ・ ${c.lastVisit || '未訪問'}</span></div>
+                        </td>
+                        <td class="py-4 px-4 text-stone-500 text-xs hidden md:table-cell">${contacts || '<span class="text-stone-300">-</span>'}</td>
+                        <td class="py-4 px-4 text-stone-500 text-xs hidden sm:table-cell">${c.lastVisit || '未訪問'}</td>
                         <td class="py-4 px-4 text-right">
                             <span class="text-orange-400 group-hover:text-orange-600 transition-colors"><i class="fa-solid fa-chevron-right"></i></span>
                         </td>
@@ -1152,7 +1602,7 @@
                 const tabs = catOrder.map(cat => {
                     const isActive = cat === activeCat;
                     return `<button onclick="SfaListView.activeCategory='${cat}'; App.route()"
-                        class="flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all border-b-2 ${isActive ? catActiveColors[cat] + ' border-transparent shadow-sm' : 'bg-white text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-700'}">
+                        class="flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all border-b-2 shrink-0 whitespace-nowrap ${isActive ? catActiveColors[cat] + ' border-transparent shadow-sm' : 'bg-white text-stone-500 border-transparent hover:bg-stone-50 hover:text-stone-700'}">
                         <i class="fa-solid ${catIcons[cat]}"></i>
                         <span>${cat}</span>
                         <span class="text-[10px] ${isActive ? 'bg-white/20' : 'bg-stone-100'} px-1.5 py-0.5 rounded-full">${counts[cat]}</span>
@@ -1160,14 +1610,14 @@
                 }).join('');
 
                 return `
-                    <div class="h-full flex flex-col animate-fade-in p-8">
-                        <div class="flex justify-between items-center mb-6">
+                    <div class="lg:h-full flex flex-col animate-fade-in p-4 lg:p-8">
+                        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
                             <h2 class="text-2xl font-bold text-stone-800 serif">顧客台帳</h2>
-                            <div class="flex gap-2">
-                                <button onclick="App.openCardScan()" class="bg-orange-600 text-white px-4 py-2 text-sm font-bold hover:bg-orange-500 transition-colors shadow-lg flex items-center gap-2">
+                            <div class="flex gap-2 w-full sm:w-auto">
+                                <button onclick="App.openCardScan()" class="flex-1 sm:flex-none justify-center bg-orange-600 text-white px-4 py-3 sm:py-2 text-sm font-bold hover:bg-orange-500 transition-colors shadow-lg flex items-center gap-2">
                                     <i class="fa-solid fa-id-card"></i>名刺スキャン
                                 </button>
-                                <button onclick="App.openNewCustomerModal()" class="bg-stone-900 text-white px-4 py-2 text-sm font-bold hover:bg-stone-700 transition-colors shadow-lg">
+                                <button onclick="App.openNewCustomerModal()" class="flex-1 sm:flex-none bg-stone-900 text-white px-4 py-3 sm:py-2 text-sm font-bold hover:bg-stone-700 transition-colors shadow-lg">
                                     <i class="fa-solid fa-plus mr-2"></i>新規登録
                                 </button>
                             </div>
@@ -1185,13 +1635,13 @@
                             `).join('') || '<div class="md:col-span-3 bg-white border border-dashed border-stone-200 p-5 text-sm text-stone-400">急ぎで見る顧客はまだ少ない。</div>'}
                         </div>
 
-                        <div class="bg-white rounded-sm shadow-sm border border-stone-200 flex flex-col flex-1 overflow-hidden">
+                        <div class="bg-white rounded-sm shadow-sm border border-stone-200 flex flex-col lg:flex-1 lg:overflow-hidden">
                             <!-- Category Tabs -->
-                            <div class="flex border-b border-stone-200">
+                            <div class="flex border-b border-stone-200 scroll-x scrollbar-hide">
                                 ${tabs}
                             </div>
                             <div class="p-4 border-b border-stone-200 bg-stone-50">
-                                <div class="relative max-w-sm">
+                                <div class="relative w-full sm:max-w-sm">
                                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-stone-400"></i>
                                     <input type="text" class="w-full pl-10 pr-4 py-2 bg-white border border-stone-300 focus:outline-none focus:border-orange-500 text-sm transition-colors"
                                         placeholder="${activeCat}内を検索..."
@@ -1199,17 +1649,17 @@
                                         oninput="window.searchTerm=this.value; App.route()">
                                 </div>
                             </div>
-                            <div class="overflow-y-auto flex-1">
+                            <div class="lg:overflow-y-auto lg:flex-1">
                                 <table class="w-full text-left border-collapse">
                                     <thead class="bg-stone-100 text-stone-500 text-xs uppercase sticky top-0 shadow-sm z-10">
                                         <tr>
                                             <th class="py-3 px-4 font-bold w-1/2">会社名</th>
-                                            <th class="py-3 px-4 font-bold w-1/4">担当者</th>
-                                            <th class="py-3 px-4 font-bold">最終訪問</th>
+                                            <th class="py-3 px-4 font-bold w-1/4 hidden md:table-cell">担当者</th>
+                                            <th class="py-3 px-4 font-bold hidden sm:table-cell">最終訪問</th>
                                             <th class="py-3 px-4"></th>
                                         </tr>
                                     </thead>
-                                    <tbody class="divide-y divide-stone-100">${rows || '<tr><td colspan="4" class="p-8 text-center text-stone-400">このカテゴリにはまだ顧客がいません</td></tr>'}</tbody>
+                                    <tbody class="divide-y divide-stone-100">${rows || '<tr><td colspan="4" class="p-4 lg:p-8 text-center text-stone-400">このカテゴリにはまだ顧客がいません</td></tr>'}</tbody>
                                 </table>
                             </div>
                         </div>
@@ -1222,7 +1672,7 @@
             render() {
                 const id = location.hash.split('?id=')[1];
                 const c = Store.state.customers.find(x => x.id == id);
-                if (!c) return '<div class="p-8">見つからない</div>';
+                if (!c) return '<div class="p-4 lg:p-8">見つからない</div>';
 
                 const phaseColors = { '基本設計': 'bg-sky-100 text-sky-700', '実施設計': 'bg-blue-100 text-blue-700', '積算': 'bg-violet-100 text-violet-700', '着工': 'bg-emerald-100 text-emerald-700', '引渡': 'bg-amber-100 text-amber-700' };
                 const history = (c.history || []).slice().reverse().map(h => `
@@ -1281,7 +1731,7 @@
                         <div class="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-stone-500 text-[10px] shrink-0"><i class="fa-solid fa-user"></i></div>
                         <input type="text" value="${p.name}" onchange="App.updateContact('${c.id}', ${idx}, 'name', this.value)" class="bg-transparent border-b border-stone-300 focus:border-orange-500 focus:outline-none text-sm font-bold text-stone-700 w-24" placeholder="氏名">
                         <input type="text" value="${p.role || ''}" onchange="App.updateContact('${c.id}', ${idx}, 'role', this.value)" class="bg-transparent border-b border-stone-300 focus:border-stone-500 focus:outline-none text-[10px] text-stone-500 w-16" placeholder="役職">
-                        <button onclick="App.deleteContact('${c.id}', ${idx})" class="text-stone-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity"><i class="fa-solid fa-times"></i></button>
+                        <button onclick="App.deleteContact('${c.id}', ${idx})" class="text-stone-300 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity touch-visible p-1"><i class="fa-solid fa-times"></i></button>
                     </div>
                 `).join('') + `<button onclick="App.addContact('${c.id}')" class="text-xs text-orange-600 hover:underline flex items-center gap-1 mt-2 ml-1"><i class="fa-solid fa-plus-circle"></i> 追加</button>`;
 
@@ -1289,9 +1739,9 @@
 
                 // 3-Column Layout
                 return `
-                    <div class="h-full grid grid-cols-12 divide-x divide-stone-200 bg-white">
+                    <div class="lg:h-full grid grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-stone-200 bg-white">
                         <!-- COL 1: Info (3/12) -->
-                        <div class="col-span-3 p-6 overflow-y-auto bg-stone-50/50">
+                        <div class="col-span-12 lg:col-span-3 p-4 lg:p-6 lg:overflow-y-auto bg-stone-50/50">
                              <input type="text" value="${c.name}" onchange="App.updateCustomer('${c.id}', 'name', this.value)" class="text-2xl font-bold bg-transparent border-none text-stone-900 focus:outline-none w-full serif mb-4" placeholder="会社名">
                              <select onchange="App.updateCustomer('${c.id}', 'category', this.value)" class="w-full text-xs font-bold py-2 px-3 rounded bg-white border border-stone-300 focus:outline-none focus:border-orange-500 cursor-pointer mb-6">
                                 ${['主要顧客', '中堅顧客', '新規・休眠', '施主・役所'].map(cat => `<option ${c.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
@@ -1309,7 +1759,7 @@
                         </div>
 
                         <!-- COL 2: Activity Form (4/12) -->
-                        <div class="col-span-4 p-6 overflow-y-auto bg-white shadow-[0_0_15px_rgba(0,0,0,0.02)] z-10">
+                        <div class="col-span-12 lg:col-span-4 p-4 lg:p-6 lg:overflow-y-auto bg-white shadow-[0_0_15px_rgba(0,0,0,0.02)] z-10">
                             <h3 class="font-bold text-stone-800 mb-6 flex items-center"><span class="bg-stone-900 w-2 h-2 mr-2"></span>活動報告 (REPORT)</h3>
                             <div class="space-y-4">
                                 <div class="grid grid-cols-2 gap-4">
@@ -1331,14 +1781,14 @@
                         </div>
 
                         <!-- COL 3: History (5/12) -->
-                        <div class="col-span-5 p-6 overflow-y-auto bg-[#f5f5f4]">
+                        <div class="col-span-12 lg:col-span-5 p-4 lg:p-6 lg:overflow-y-auto bg-[#f5f5f4]">
                             <h3 class="text-stone-300 font-bold mb-6 text-xs uppercase tracking-widest text-center border-b border-stone-200 leading-[0.1em]"><span class="bg-[#f5f5f4] px-4">活動履歴 (HISTORY)</span></h3>
-                            <div class="pb-20">${history || '<div class="text-center py-20 text-stone-400 italic font-serif">まだ歴史はない。</div>'}</div>
+                            <div class="pb-8 lg:pb-20">${history || '<div class="text-center py-20 text-stone-400 italic font-serif">まだ歴史はない。</div>'}</div>
                         </div>
                     </div>
                     
                     <!-- Email Modal (Re-used) -->
-                    <dialog id="email-modal" class="p-0 rounded-sm shadow-2xl w-[600px] backdrop:bg-stone-900/50 m-auto open:animate-fade-in border-t-4 border-stone-800"><div class="bg-white p-8"><div class="flex justify-between items-center mb-6"><h3 class="font-bold text-lg text-stone-900 serif">Generated Email</h3><button onclick="document.getElementById('email-modal').close()" class="text-stone-400 hover:text-stone-800"><i class="fa-solid fa-xmark"></i></button></div><p class="text-xs text-stone-400 mb-2">以下をコピーして使え。</p><textarea id="email-content" class="w-full h-64 text-sm p-4 bg-stone-50 border border-stone-200 mb-6 font-mono text-stone-700 leading-relaxed focus:outline-none resize-none"></textarea><button onclick="navigator.clipboard.writeText(document.getElementById('email-content').value); alert('コピーした。')" class="w-full px-4 py-3 bg-orange-600 text-white font-bold tracking-widest hover:bg-orange-500 transition-colors shadow">クリップボードにコピー</button></div></dialog>
+                    <dialog id="email-modal" class="p-0 rounded-sm shadow-2xl w-full max-w-[600px] max-h-[90dvh] overflow-y-auto backdrop:bg-stone-900/50 m-auto open:animate-fade-in border-t-4 border-stone-800"><div class="bg-white p-4 lg:p-8"><div class="flex justify-between items-center mb-6"><h3 class="font-bold text-lg text-stone-900 serif">Generated Email</h3><button onclick="document.getElementById('email-modal').close()" class="text-stone-400 hover:text-stone-800"><i class="fa-solid fa-xmark"></i></button></div><p class="text-xs text-stone-400 mb-2">以下をコピーして使え。</p><textarea id="email-content" class="w-full h-64 text-sm p-4 bg-stone-50 border border-stone-200 mb-6 font-mono text-stone-700 leading-relaxed focus:outline-none resize-none"></textarea><button onclick="navigator.clipboard.writeText(document.getElementById('email-content').value); alert('コピーした。')" class="w-full px-4 py-3 bg-orange-600 text-white font-bold tracking-widest hover:bg-orange-500 transition-colors shadow">クリップボードにコピー</button></div></dialog>
                 `;
             }
         }
@@ -1405,7 +1855,7 @@
                                 </div>
                             ` : ''}
                             ${log.night?.aiAdvice ? `
-                                <div class="mt-8 p-6 bg-stone-950 border border-stone-800 relative overflow-hidden">
+                                <div class="mt-8 p-4 lg:p-6 bg-stone-950 border border-stone-800 relative overflow-hidden">
                                     <div class="absolute right-[-10px] bottom-[-10px] opacity-5 text-6xl text-orange-600"><i class="fa-solid fa-user-secret"></i></div>
                                     <div class="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-3">陣内の助言</div>
                                     <div class="text-sm text-stone-400 leading-relaxed font-serif relative z-10">${log.night.aiAdvice}</div>
@@ -1416,7 +1866,7 @@
                 } else {
                     logDetail = `
                         <div class="h-64 flex flex-col items-center justify-center border border-dashed border-stone-800 rounded-lg text-stone-700">
-                            <i class="fa-solid fa-scroll text-4xl mb-4 opacity-20"></i>
+                            <i class="fa-solid fa-scroll text-2xl lg:text-4xl mb-4 opacity-20"></i>
                             <div class="font-serif italic text-sm">この日の記録はない。</div>
                             <div class="text-[10px] mt-2 uppercase tracking-widest">No Record for ${this.selectedDate}</div>
                         </div>
@@ -1471,20 +1921,20 @@
                 }
 
                 return `
-                    <div class="h-full bg-stone-950 text-stone-300 overflow-y-auto animate-fade-in p-8 pb-32">
+                    <div class="h-full bg-stone-950 text-stone-300 overflow-y-auto animate-fade-in p-4 lg:p-8 pb-32">
                         <div class="max-w-5xl mx-auto py-12">
                             <div class="text-center mb-16 px-4">
                                 <h2 class="text-sm font-bold tracking-[0.4em] text-orange-600 uppercase mb-4 font-sans">Evening Reflection</h2>
-                                <h1 class="text-4xl font-serif text-stone-100 mb-2">夕刻の総括</h1>
+                                <h1 class="text-2xl lg:text-4xl font-serif text-stone-100 mb-2">夕刻の総括</h1>
                                 <p class="text-stone-500 font-serif italic text-sm">"今日を閉じ、明日を拓く。"</p>
                             </div>
 
-                            <div class="grid grid-cols-12 gap-12">
+                            <div class="grid grid-cols-12 gap-6 lg:gap-12">
                                 <!-- Left Sidebar: Calendar & Achievements -->
                                 <div class="col-span-12 lg:col-span-4 space-y-12">
                                     
                                     <!-- Calendar Component -->
-                                    <div class="bg-stone-900/30 p-6 rounded-sm border border-stone-800/50">
+                                    <div class="bg-stone-900/30 p-4 lg:p-6 rounded-sm border border-stone-800/50">
                                         <div class="flex justify-between items-center mb-6">
                                             <h3 class="text-xs font-bold text-stone-200">${monthName}</h3>
                                             <div class="flex gap-1">
@@ -1501,12 +1951,12 @@
                                     </div>
 
                                     <div class="space-y-6">
-                                        <div class="bg-stone-900/50 p-6 border-l border-stone-800">
+                                        <div class="bg-stone-900/50 p-4 lg:p-6 border-l border-stone-800">
                                             <h3 class="text-[10px] font-bold text-stone-500 uppercase tracking-widest mb-4">今日の足跡</h3>
                                             <div class="space-y-1">${doneTasks || '<div class="text-stone-600 italic text-xs">何も成し遂げなかったか？<br>それもまた一日だ。</div>'}</div>
                                         </div>
                                         
-                                        <div class="bg-indigo-950/30 p-6 border-l border-indigo-500/30">
+                                        <div class="bg-indigo-950/30 p-4 lg:p-6 border-l border-indigo-500/30">
                                             <h3 class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">勝利条件の確認</h3>
                                             <p class="text-sm text-stone-300 font-serif">${s.dailyKpi.winningCondition || '未設定'}</p>
                                         </div>
@@ -1519,7 +1969,7 @@
                                     <!-- Reflection Mode / History Viewer -->
                                     ${this.isReflecting ? `
                                         <div class="space-y-12 animate-fade-in">
-                                            <div class="bg-stone-900 border-t-8 border-orange-600 p-10 shadow-2xl relative">
+                                            <div class="bg-stone-900 border-t-8 border-orange-600 p-5 lg:p-10 shadow-2xl relative">
                                                 <div class="absolute right-6 top-6 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-quote-right"></i></div>
                                                 <h3 class="text-[10px] font-bold text-orange-600 uppercase tracking-[0.3em] mb-6">陣内の総括 (Strategy Advice)</h3>
                                                 <div class="text-xl text-stone-200 leading-relaxed font-serif italic mb-4">「${this.lastAdvice}」</div>
@@ -1527,7 +1977,7 @@
                                             </div>
 
                                             ${this.lastEmotionComment ? `
-                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-pink-900/30 p-10 shadow-2xl relative overflow-hidden">
+                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-pink-900/30 p-5 lg:p-10 shadow-2xl relative overflow-hidden">
                                                 <div class="absolute right-6 top-6 opacity-5 text-7xl text-pink-500"><i class="fa-solid fa-heart"></i></div>
                                                 <h3 class="text-[10px] font-bold text-pink-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
                                                     <i class="fa-solid fa-heart"></i> 今日の感情へのコメント (Emotional Feedback)
@@ -1537,7 +1987,7 @@
                                             ` : ''}
 
                                             ${this.lastVerbalizationComment ? `
-                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-sky-900/30 p-10 shadow-2xl relative overflow-hidden">
+                                            <div class="bg-gradient-to-br from-stone-900 to-stone-900/80 border border-sky-900/30 p-5 lg:p-10 shadow-2xl relative overflow-hidden">
                                                 <div class="absolute right-6 top-6 opacity-5 text-7xl text-sky-500"><i class="fa-solid fa-lightbulb"></i></div>
                                                 <h3 class="text-[10px] font-bold text-sky-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
                                                     <i class="fa-solid fa-lightbulb"></i> 親友トレーナーからの手紙 (Reframing Feedback)
@@ -1546,7 +1996,7 @@
                                             </div>
                                             ` : ''}
 
-                                            <div class="bg-stone-900/40 p-10 border border-stone-800">
+                                            <div class="bg-stone-900/40 p-5 lg:p-10 border border-stone-800">
                                                 <h3 class="text-[10px] font-bold text-stone-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-2">
                                                     <i class="fa-solid fa-compass text-indigo-400"></i> 明日の展望 (Next Strategy)
                                                 </h3>
@@ -1571,7 +2021,7 @@
                                     ` : (this.selectedDate !== today ? logDetail : `
                                         <div class="relative group">
                                             <div class="absolute -inset-1 bg-gradient-to-b from-stone-800 to-transparent opacity-20 rounded-sm blur transition duration-1000 group-hover:opacity-40"></div>
-                                            <div class="relative bg-stone-900 border border-stone-800 p-8 shadow-2xl">
+                                            <div class="relative bg-stone-900 border border-stone-800 p-4 lg:p-8 shadow-2xl">
                                                 <div class="flex justify-between items-center mb-6">
                                                     <h3 class="text-stone-500 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
                                                         <i class="fa-solid fa-pen-fancy text-orange-600"></i> 今日の執筆 (Business Summary)
@@ -1728,7 +2178,7 @@
                         </div>
                     </div>`;
                 }).join('');
-                return `<div class="h-full flex flex-col animate-fade-in pb-12 p-8"><h2 class="text-2xl font-bold text-stone-800 serif mb-6">戦略地図</h2><div class="flex-1 bg-white border border-stone-200 shadow-sm relative rounded-sm overflow-hidden m-4" style="background-image: radial-gradient(#d6d3d1 1px, transparent 1px); background-size: 40px 40px;"><div class="absolute left-1/2 top-4 bottom-4 w-px bg-stone-400 border-l border-dashed border-stone-400"></div><div class="absolute top-1/2 left-4 right-4 h-px bg-stone-400 border-t border-dashed border-stone-400"></div><div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（大）</div><div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（小）</div><div class="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（高）</div><div class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（低）</div><div class="absolute inset-8">${dots}</div></div><p class="text-center text-stone-400 text-xs font-serif">"右上の客を狙え。そこが一番美味い。"</p></div>`;
+                return `<div class="h-full flex flex-col animate-fade-in pb-12 p-4 lg:p-8"><h2 class="text-2xl font-bold text-stone-800 serif mb-6">戦略地図</h2><div class="flex-1 min-h-[60vh] bg-white border border-stone-200 shadow-sm relative rounded-sm overflow-hidden my-4 lg:m-4" style="background-image: radial-gradient(#d6d3d1 1px, transparent 1px); background-size: 40px 40px;"><div class="absolute left-1/2 top-4 bottom-4 w-px bg-stone-400 border-l border-dashed border-stone-400"></div><div class="absolute top-1/2 left-4 right-4 h-px bg-stone-400 border-t border-dashed border-stone-400"></div><div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（大）</div><div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500">案件規模（小）</div><div class="absolute top-1/2 right-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（高）</div><div class="absolute top-1/2 left-2 -translate-y-1/2 text-xs font-bold bg-white/80 px-2 text-stone-500 writing-vertical">友好度（低）</div><div class="absolute inset-10 lg:inset-8">${dots}</div></div><p class="text-center text-stone-400 text-xs font-serif">"右上の客を狙え。そこが一番美味い。"</p></div>`;
             }
         }
 
@@ -1832,7 +2282,7 @@
                 if (logs.length === 0) {
                     return `
                         <div class="text-center py-12 text-stone-400">
-                            <i class="fa-solid fa-clock-rotate-left text-4xl mb-4 opacity-30"></i>
+                            <i class="fa-solid fa-clock-rotate-left text-2xl lg:text-4xl mb-4 opacity-30"></i>
                             <p class="font-serif">まだ相談履歴はないよ。</p>
                         </div>`;
                 }
@@ -1879,7 +2329,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             ${legends.map(l => `
                                 <div onclick="LegendsView.selectLegend('${l.id}')"
-                                    class="group cursor-pointer ${l.bgColor} p-6 rounded-sm shadow-xl hover:scale-[1.02] transition-all border-l-4 ${l.borderColor} relative overflow-hidden">
+                                    class="group cursor-pointer ${l.bgColor} p-4 lg:p-6 rounded-sm shadow-xl hover:scale-[1.02] transition-all border-l-4 ${l.borderColor} relative overflow-hidden">
                                     <div class="absolute right-2 top-2 opacity-10 text-6xl text-white"><i class="fa-solid ${l.icon}"></i></div>
                                     <div class="relative z-10">
                                         <div class="text-${l.color}-400 text-xs font-bold uppercase tracking-widest mb-2">${l.title}</div>
@@ -1898,10 +2348,10 @@
                     `;
                     return `
                         <div class="h-full overflow-y-auto animate-fade-in">
-                            <div class="max-w-4xl mx-auto p-8 pb-20">
+                            <div class="max-w-4xl mx-auto p-4 lg:p-8 pb-20">
                                 <div class="flex justify-between items-center mb-8">
                                     <div class="text-center flex-1">
-                                        <h2 class="text-3xl font-bold text-stone-800 serif mb-2">伝説の相談室</h2>
+                                        <h2 class="text-2xl lg:text-3xl font-bold text-stone-800 serif mb-2">伝説の相談室</h2>
                                         <p class="text-stone-500">営業の達人たちに相談できる。それぞれのスタイルは異なる。</p>
                                     </div>
                                     <button onclick="LegendsView.showHistory = !LegendsView.showHistory; App.route()"
@@ -1922,7 +2372,7 @@
                 return `
                     <div class="h-full flex flex-col animate-fade-in">
                         <!-- Header -->
-                        <div class="${legend.bgColor} p-6 border-b-4 ${legend.borderColor} relative overflow-hidden">
+                        <div class="${legend.bgColor} p-4 lg:p-6 border-b-4 ${legend.borderColor} relative overflow-hidden">
                             <div class="absolute right-4 top-1/2 -translate-y-1/2 opacity-10 text-8xl text-white"><i class="fa-solid ${legend.icon}"></i></div>
                             <div class="relative z-10 flex items-center gap-4">
                                 <button onclick="LegendsView.back()" class="text-white/50 hover:text-white transition-colors">
@@ -1936,10 +2386,10 @@
                         </div>
 
                         <!-- Chat Area -->
-                        <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-stone-100" id="legends-chat">
+                        <div class="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6 bg-stone-100" id="legends-chat">
                             ${this.answers.length === 0 ? `
                                 <div class="text-center py-12 text-stone-400">
-                                    <i class="fa-solid ${legend.icon} text-4xl mb-4 opacity-30"></i>
+                                    <i class="fa-solid ${legend.icon} text-2xl lg:text-4xl mb-4 opacity-30"></i>
                                     <p class="font-serif italic">${legend.quote}</p>
                                     <p class="text-xs mt-2">何でも聞いてみろ。</p>
                                 </div>
@@ -2014,8 +2464,8 @@
                 if (quotes.length === 0) {
                     return `
                         <div class="h-full overflow-y-auto animate-fade-in">
-                            <div class="max-w-4xl mx-auto p-8 pb-20">
-                                <h2 class="text-3xl font-bold text-stone-800 serif mb-2">名言コレクション</h2>
+                            <div class="max-w-4xl mx-auto p-4 lg:p-8 pb-20">
+                                <h2 class="text-2xl lg:text-3xl font-bold text-stone-800 serif mb-2">名言コレクション</h2>
                                 <p class="text-stone-500 mb-8">伝説の営業マンたちの心に残る言葉を保存する場所だ。</p>
                                 <div class="text-center py-20 text-stone-400">
                                     <i class="fa-solid fa-quote-left text-6xl mb-4 opacity-20"></i>
@@ -2028,8 +2478,8 @@
 
                 return `
                     <div class="h-full overflow-y-auto animate-fade-in">
-                        <div class="max-w-4xl mx-auto p-8 pb-20">
-                            <h2 class="text-3xl font-bold text-stone-800 serif mb-2">名言コレクション</h2>
+                        <div class="max-w-4xl mx-auto p-4 lg:p-8 pb-20">
+                            <h2 class="text-2xl lg:text-3xl font-bold text-stone-800 serif mb-2">名言コレクション</h2>
                             <p class="text-stone-500 mb-8">保存した名言は${quotes.length}件</p>
 
                             <div class="space-y-6">
@@ -2037,9 +2487,9 @@
                                     const legend = LEGENDS[q.legendId];
                                     const date = new Date(q.date).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
                                     return `
-                                        <div class="bg-white p-6 rounded-lg shadow-sm border border-stone-200 hover:shadow-md transition-shadow relative group">
+                                        <div class="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-stone-200 hover:shadow-md transition-shadow relative group">
                                             <button onclick="Store.deleteFamousQuote('${q.id}'); App.route();"
-                                                class="absolute top-4 right-4 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                                                class="absolute top-4 right-4 text-stone-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 touch-visible p-2">
                                                 <i class="fa-solid fa-trash"></i>
                                             </button>
                                             <div class="flex items-center gap-3 mb-4">
@@ -2071,8 +2521,8 @@
                 if (customers.length === 0) {
                     return `
                         <div class="h-full overflow-y-auto animate-fade-in">
-                            <div class="max-w-5xl mx-auto p-8 pb-20">
-                                <h2 class="text-3xl font-bold text-stone-800 serif mb-2">お客様の顔ギャラリー</h2>
+                            <div class="max-w-5xl mx-auto p-4 lg:p-8 pb-20">
+                                <h2 class="text-2xl lg:text-3xl font-bold text-stone-800 serif mb-2">お客様の顔ギャラリー</h2>
                                 <p class="text-stone-500 mb-8">すべてのお客様をカード形式で一覧表示する。</p>
                                 <div class="text-center py-20 text-stone-400">
                                     <i class="fa-solid fa-user-group text-6xl mb-4 opacity-20"></i>
@@ -2091,8 +2541,8 @@
 
                 return `
                     <div class="h-full overflow-y-auto animate-fade-in">
-                        <div class="max-w-6xl mx-auto p-8 pb-20">
-                            <h2 class="text-3xl font-bold text-stone-800 serif mb-2">お客様の顔ギャラリー</h2>
+                        <div class="max-w-6xl mx-auto p-4 lg:p-8 pb-20">
+                            <h2 class="text-2xl lg:text-3xl font-bold text-stone-800 serif mb-2">お客様の顔ギャラリー</h2>
                             <p class="text-stone-500 mb-8">全${customers.length}件中、${deliveredCustomers.length}件が引渡済み</p>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -2166,8 +2616,8 @@
         const NewCustomerModal = {
             render() {
                 return `
-                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div class="bg-white p-8 w-[480px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative">
+                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto">
+                        <div class="bg-white p-4 lg:p-8 w-full max-w-[480px] max-h-[90dvh] overflow-y-auto shadow-2xl border-t-4 border-orange-600 animate-fade-in relative">
                             <button onclick="App.closeModal()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
                             <h2 class="font-bold text-xl mb-6 serif text-stone-800">新規顧客登録</h2>
                             <div class="space-y-4">
@@ -2209,8 +2659,8 @@
             render() {
                 if (this.step === 'camera') {
                     return `
-                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-                            <div class="bg-stone-900 p-6 w-[600px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto">
+                            <div class="bg-stone-900 p-4 lg:p-6 w-full max-w-[600px] max-h-[90dvh] overflow-y-auto shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
                                 <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-500 hover:text-stone-100 z-10"><i class="fa-solid fa-xmark fa-lg"></i></button>
 
                                 <div class="text-center mb-6">
@@ -2243,8 +2693,8 @@
 
                 if (this.step === 'preview') {
                     return `
-                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-                            <div class="bg-stone-900 p-6 w-[600px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto">
+                            <div class="bg-stone-900 p-4 lg:p-6 w-full max-w-[600px] max-h-[90dvh] overflow-y-auto shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-100">
                                 <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-500 hover:text-stone-100"><i class="fa-solid fa-xmark fa-lg"></i></button>
 
                                 <div class="text-center mb-6">
@@ -2271,8 +2721,8 @@
                 if (this.step === 'result') {
                     const d = this.extractedData || {};
                     return `
-                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8">
-                            <div class="bg-white p-8 w-[550px] shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-900">
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 overflow-y-auto p-3">
+                            <div class="bg-white p-4 lg:p-8 w-full max-w-[550px] max-h-[90dvh] overflow-y-auto shadow-2xl border-t-4 border-orange-600 animate-fade-in relative text-stone-900">
                                 <button onclick="App.closeCardScan()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
 
                                 <div class="flex items-start gap-4 mb-6">
@@ -2332,8 +2782,8 @@
                 if (this.step === 'impression') {
                     const d = this.extractedData || {};
                     return `
-                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-                            <div class="bg-stone-900 p-8 w-[500px] shadow-2xl border-l-4 border-orange-600 animate-fade-in relative text-stone-100">
+                        <div class="fixed inset-0 bg-stone-900/95 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto">
+                            <div class="bg-stone-900 p-4 lg:p-8 w-full max-w-[500px] max-h-[90dvh] overflow-y-auto shadow-2xl border-l-4 border-orange-600 animate-fade-in relative text-stone-100">
                                 <div class="absolute right-4 top-4 opacity-10 text-6xl text-orange-600"><i class="fa-solid fa-user-secret"></i></div>
 
                                 <div class="mb-6">
@@ -2367,7 +2817,12 @@
                 window.addEventListener('hashchange', () => this.route());
 
                 // Keyboard shortcut escape
-                window.onkeydown = (e) => { if (e.key === 'Escape') this.closeModal(); };
+                window.onkeydown = (e) => { if (e.key === 'Escape') { this.closeModal(); this.closeSidebar(); } };
+
+                // スマホ: メニューから移動したらドロワーを閉じる
+                document.querySelectorAll('.sidebar-item').forEach(el => {
+                    el.addEventListener('click', () => this.closeSidebar());
+                });
 
                 // 通知チェック: 1分ごとにチェック
                 setInterval(() => this.checkRoutineNotifications(), 60000);
@@ -2376,6 +2831,9 @@
 
                 if (!location.hash) location.hash = '#dashboard';
                 else this.route();
+
+                // 端末間同期(設定済みなら起動時にサーバーと突き合わせる)
+                Sync.init();
             },
             formatJapaneseDate(date) {
                 return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
@@ -2752,12 +3210,31 @@
                     'secretary': SecretaryView, 'warehouse': WarehouseView, 'legends': LegendsView, 'quotes': QuotesView, 'gallery': GalleryView
                 }[baseHash];
 
-                document.getElementById('view-container').innerHTML = view ? view.render() : 'Not Found';
+                const container = document.getElementById('view-container');
+                container.innerHTML = view ? view.render() : 'Not Found';
+                container.scrollTop = 0;
 
+                let activeLabel = '';
                 document.querySelectorAll('.sidebar-item').forEach(el => {
-                    if (el.getAttribute('data-view') === baseHash) el.classList.add('active');
-                    else el.classList.remove('active');
+                    if (el.getAttribute('data-view') === baseHash) {
+                        el.classList.add('active');
+                        activeLabel = el.textContent.trim();
+                    } else el.classList.remove('active');
                 });
+
+                const titleEl = document.getElementById('mobile-view-title');
+                if (titleEl) titleEl.textContent = activeLabel || (baseHash === 'sfa_detail' ? '顧客詳細' : '営業参謀');
+            },
+
+            // --- スマホ用サイドバー(ドロワー) ---
+            openSidebar() {
+                document.getElementById('sidebar')?.classList.remove('-translate-x-full');
+                document.getElementById('sidebar-overlay')?.classList.remove('hidden');
+            },
+            closeSidebar() {
+                if (window.matchMedia('(min-width: 1024px)').matches) return;
+                document.getElementById('sidebar')?.classList.add('-translate-x-full');
+                document.getElementById('sidebar-overlay')?.classList.add('hidden');
             },
 
             // Warehouse Logic
@@ -3379,8 +3856,8 @@ ${question}
         const SettingsModal = {
             render() {
                 return `
-                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50" onclick="if(event.target===this) App.closeModal()">
-                        <div class="bg-white p-8 w-96 shadow-2xl border-t-4 border-stone-800 animate-fade-in relative">
+                    <div class="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 p-3 overflow-y-auto" onclick="if(event.target===this) App.closeModal()">
+                        <div class="bg-white p-4 lg:p-8 w-full max-w-[384px] max-h-[90dvh] overflow-y-auto shadow-2xl border-t-4 border-stone-800 animate-fade-in relative">
                              <button onclick="App.closeModal()" class="absolute right-4 top-4 text-stone-300 hover:text-stone-800"><i class="fa-solid fa-xmark fa-lg"></i></button>
                             <h2 class="font-bold text-lg mb-6 serif">システム設定</h2>
                             <label class="block mb-4">
@@ -3403,6 +3880,44 @@ ${question}
                                         <option value="v1beta" ${Store.state.userSettings.apiVersion === 'v1beta' ? 'selected' : ''}>v1beta</option>
                                     </select>
                                 </div>
+                            </div>
+                            <div class="mb-6 p-4 border-2 border-orange-200 bg-orange-50/40 rounded-sm">
+                                <h3 class="text-xs font-bold text-stone-700 mb-1"><i class="fa-solid fa-mobile-screen-button mr-1 text-orange-600"></i>端末間の同期（スマホ ⇄ パソコン）</h3>
+                                <p class="text-[10px] text-stone-500 leading-relaxed mb-3">
+                                    Google Apps Script に保存先を作ると、両方の端末で同じ内容が見られる。
+                                    手順は <span class="font-mono">gas/sync.gs</span> の先頭に書いてある。
+                                </p>
+                                <label class="block mb-2">
+                                    <span class="text-[10px] font-bold text-stone-400">同期先URL（… /exec）</span>
+                                    <input type="url" id="sync-url" inputmode="url" placeholder="https://script.google.com/macros/s/..../exec"
+                                        class="w-full border-b border-stone-300 py-1 outline-none text-xs font-mono bg-transparent" value="${Sync.cfg.url}">
+                                </label>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                    <label class="block">
+                                        <span class="text-[10px] font-bold text-stone-400">合言葉（SYNC_TOKEN）</span>
+                                        <input type="password" id="sync-token" class="w-full border-b border-stone-300 py-1 outline-none text-xs font-mono bg-transparent" value="${Sync.cfg.token}">
+                                    </label>
+                                    <label class="block">
+                                        <span class="text-[10px] font-bold text-stone-400">この端末の名前</span>
+                                        <input type="text" id="sync-device" placeholder="${Sync.defaultDeviceName()}" class="w-full border-b border-stone-300 py-1 outline-none text-xs bg-transparent" value="${Sync.cfg.deviceName || ''}">
+                                    </label>
+                                </div>
+                                <div class="flex items-center gap-2 mb-3">
+                                    <input type="checkbox" id="sync-enabled" ${Sync.cfg.enabled || !Sync.cfg.url ? 'checked' : ''}>
+                                    <label for="sync-enabled" class="text-xs cursor-pointer">同期を有効にする</label>
+                                </div>
+                                <div class="flex flex-wrap items-center justify-between gap-2 text-[10px] text-stone-500">
+                                    <span>状態: <span id="sync-settings-status" class="font-bold">${Sync.message}</span></span>
+                                    <div class="flex gap-3">
+                                        <button onclick="App.saveSyncSettings()" class="text-orange-600 font-bold hover:underline"><i class="fa-solid fa-floppy-disk mr-1"></i>保存</button>
+                                        <button onclick="App.testSyncConnection()" class="text-indigo-600 font-bold hover:underline"><i class="fa-solid fa-plug mr-1"></i>接続テスト</button>
+                                        <button onclick="Sync.syncNow(true)" class="text-stone-700 font-bold hover:underline"><i class="fa-solid fa-rotate mr-1"></i>今すぐ同期</button>
+                                    </div>
+                                </div>
+                                <p class="text-[9px] text-stone-400 mt-3 leading-relaxed">
+                                    ・APIキーは同期されない（端末ごとに入力）。<br>
+                                    ・URLと合言葉は他人に渡さないこと。渡すと中身を読まれる。
+                                </p>
                             </div>
                             <div class="mb-4 p-3 bg-stone-50 rounded border border-stone-200">
                                 <h4 class="font-bold text-xs text-stone-700 mb-2"><i class="fa-solid fa-bell mr-1"></i>ブラウザ通知</h4>
@@ -3439,6 +3954,64 @@ ${question}
                             </button>
                         </div>
                     </div>`;
+            }
+        };
+
+        // --- 同期設定の保存・接続テスト ---
+        App.saveSyncSettings = function () {
+            const url = (document.getElementById('sync-url').value || '').trim();
+            const token = (document.getElementById('sync-token').value || '').trim();
+            const deviceName = (document.getElementById('sync-device').value || '').trim();
+            const enabled = document.getElementById('sync-enabled').checked;
+
+            if (enabled && !url) { alert('同期先URLが空だ。'); return; }
+            if (enabled && !token) { alert('合言葉が空だ。GAS側の SYNC_TOKEN と同じ文字列を入れてくれ。'); return; }
+            if (enabled && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(url)) {
+                if (!confirm('URLの形がGASのウェブアプリと違うように見える。このまま保存する？')) return;
+            }
+
+            // 同期先が変わったら、突き合わせの基準を作り直す
+            const changed = url !== Sync.cfg.url || token !== Sync.cfg.token;
+            Sync.cfg = { url, token, deviceName: deviceName || Sync.defaultDeviceName(), enabled };
+            if (changed) { Sync.baseUpdatedAt = 0; Sync.dirty = false; }
+            Sync.saveConfig();
+            Sync.render();
+
+            alert('同期設定を保存した。');
+            if (enabled) Sync.syncNow(true);
+        };
+
+        App.testSyncConnection = async function () {
+            const url = (document.getElementById('sync-url').value || '').trim();
+            const token = (document.getElementById('sync-token').value || '').trim();
+            const statusEl = document.getElementById('sync-settings-status');
+            if (!url || !token) { alert('URLと合言葉の両方を入れてくれ。'); return; }
+
+            statusEl.textContent = '接続テスト中...';
+            try {
+                const q = new URLSearchParams({ action: 'ping', token, t: String(Date.now()) });
+                const r = await fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + q.toString(), { method: 'GET', redirect: 'follow' });
+                const text = await r.text();
+                let res;
+                try { res = JSON.parse(text); }
+                catch (e) {
+                    statusEl.textContent = '応答がJSONでない';
+                    alert('同期先から想定外の応答が返ってきた。\n\n・URLが /exec で終わっているか\n・デプロイの「アクセスできるユーザー」が「全員」か\nを確認してくれ。');
+                    return;
+                }
+                if (res.pong && res.authorized) {
+                    statusEl.textContent = '接続OK';
+                    alert('つながった。合言葉も合っている。');
+                } else if (res.pong) {
+                    statusEl.textContent = '合言葉が違う';
+                    alert('URLは合っているが、合言葉が違う。GAS側の SYNC_TOKEN と揃えてくれ。');
+                } else {
+                    statusEl.textContent = '応答が不正';
+                    alert('想定外の応答: ' + text.slice(0, 200));
+                }
+            } catch (e) {
+                statusEl.textContent = '接続失敗';
+                alert('つながらなかった。\n\n' + (e && e.message ? e.message : e));
             }
         };
 

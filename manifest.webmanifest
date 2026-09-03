@@ -1,0 +1,20 @@
+{
+  "name": "営業参謀 Pro",
+  "short_name": "営業参謀",
+  "description": "営業活動の記録・振り返りと、AIによる次の一手の相談",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#1c1917",
+  "theme_color": "#1c1917",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
